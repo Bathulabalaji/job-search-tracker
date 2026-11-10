@@ -8,10 +8,18 @@ class Settings(BaseSettings):
 
     app_name: str = "Career Command Center"
     environment: str = "local"
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/career_command_center"
+    database_url: str = (
+        "postgresql+psycopg://postgres:postgres@localhost:5432/career_command_center"
+    )
     cors_origins: list[str] = ["http://localhost:5173"]
     # Single-user JWT login, off locally. Wired up in a later step.
     auth_enabled: bool = False
+
+    # Timezone used to decide what "today" and "working day" mean.
+    timezone: str = "Asia/Kolkata"
+    # Auto-rules from the brief.
+    followup_working_days: int = 2
+    ghost_after_days: int = 21
 
 
 @lru_cache

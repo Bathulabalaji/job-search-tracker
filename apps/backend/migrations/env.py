@@ -3,6 +3,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
+import app.models  # noqa: F401  (register models for autogenerate)
 from app.core.config import get_settings
 from app.db.base import Base
 
@@ -11,13 +12,18 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import models here as they are added so autogenerate can see them.
 target_metadata = Base.metadata
+
+
+def _database_url() -> str:
+    # Tests pass a URL via Config.attributes; otherwise use DATABASE_URL from .env.
+    override = config.attributes.get("database_url")
+    return str(override) if override else get_settings().database_url
 
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=get_settings().database_url,
+        url=_database_url(),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -27,7 +33,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = create_engine(get_settings().database_url, poolclass=pool.NullPool)
+    connectable = create_engine(_database_url(), poolclass=pool.NullPool)
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
