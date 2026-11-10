@@ -8,6 +8,7 @@ from app.core.clock import Clock
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.services.contact import ContactService
+from app.services.dashboard import DashboardService
 from app.services.followup import FollowupService
 from app.services.interaction import InteractionService
 from app.services.opportunity import OpportunityService
@@ -41,6 +42,11 @@ def get_followup_service(db: DbSession, clock: ClockDep) -> FollowupService:
     return FollowupService(db, clock)
 
 
+def get_dashboard_service(db: DbSession, clock: ClockDep) -> DashboardService:
+    return DashboardService(db, clock)
+
+
+DashboardServiceDep = Annotated[DashboardService, Depends(get_dashboard_service)]
 OpportunityServiceDep = Annotated[OpportunityService, Depends(get_opportunity_service)]
 ContactServiceDep = Annotated[ContactService, Depends(get_contact_service)]
 InteractionServiceDep = Annotated[InteractionService, Depends(get_interaction_service)]

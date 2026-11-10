@@ -2,7 +2,7 @@
 
 Single-user job search tracker + analytics. See [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) for the full brief.
 
-**Status:** backend API for opportunities, contacts, interactions and follow-ups (including `/move` and the follow-up auto-rule) is done. The frontend is still a layout shell.
+**Status:** backend API for opportunities, contacts, interactions and follow-ups (including `/move` and the follow-up auto-rule) is done, plus `GET /dashboard/today`. The frontend has the Today page, the Pipeline kanban, the Opportunity detail page and the Cmd/Ctrl+K command palette. Analytics, Daily log, Prep and Contacts & Resumes are still placeholders.
 
 ```
 apps/
@@ -43,7 +43,7 @@ Layout: `app/api` (routers), `app/services`, `app/repositories`, `app/models`, `
 | --- | --- | --- | --- |
 | Health endpoint | any | `curl http://localhost:8000/api/v1/health` | `{"status":"ok"}` |
 | OpenAPI docs | browser | <http://localhost:8000/docs> | Swagger UI listing health, opportunities, contacts, interactions, followups |
-| Tests | `apps/backend` | `uv run pytest` | 57 passed |
+| Tests | `apps/backend` | `uv run pytest` | 61 passed |
 | Types | `apps/backend` | `uv run mypy` | `Success: no issues found` |
 | Lint | `apps/backend` | `uv run ruff check .` | `All checks passed!` |
 | Alembic connects | `apps/backend` | `uv run alembic current` | `0001 (head)` after you run the migration below |
@@ -77,7 +77,7 @@ It creates 10 fictional opportunities across all stages. One applied opportunity
 From `apps/backend`:
 
 ```bash
-uv run pytest            # 57 tests
+uv run pytest            # 61 tests
 uv run pytest tests/unit # pure rules only, no database needed
 ```
 
@@ -91,6 +91,7 @@ Service and API tests need PostgreSQL. They use a separate `<database>_test` dat
 | Contacts | `GET/POST /contacts`, `GET/PATCH/DELETE /contacts/{id}` |
 | Interactions | `GET/POST /interactions`, `GET/PATCH/DELETE /interactions/{id}` |
 | Follow-ups | `GET/POST /followups`, `GET/PATCH/DELETE /followups/{id}` |
+| Dashboard | `GET /dashboard/today` (pending follow-ups due or overdue, interviews today, top 3 next actions) |
 
 List endpoints take `limit` and `offset`, plus filters (for example `?stage=applied&priority=1&q=acme`, `?opportunity_id=3`, `?status=pending&due_on_or_before=2026-11-13`).
 
@@ -115,13 +116,19 @@ npm run dev                   # http://localhost:5173
 
 ### Verify the frontend
 
-| Check | Directory | Command | Expected |
+Start the backend first (section 2), apply migrations and seed it, then run `npm run dev`.
+
+| Check | Directory | Command / action | Expected |
 | --- | --- | --- | --- |
-| App loads | browser | <http://localhost:5173> | Dark navy shell with a sidebar and a "Today" placeholder |
-| Navigation | browser | click sidebar items | URL and heading change (Pipeline, Analytics, Daily log, Prep, Contacts & Resumes) |
-| Theme toggle | browser | click the sun/moon button at the bottom of the sidebar | Switches between dark (default) and light; choice survives a reload |
 | Type check + build | `apps/frontend` | `npm run build` | Builds with no TypeScript errors |
-| Lint | `apps/frontend` | `npm run lint` | No errors (3 warnings from generated shadcn files are expected) |
+| Lint | `apps/frontend` | `npm run lint` | No errors (a few warnings from generated shadcn files are expected) |
+| Today | browser | <http://localhost:5173> | Overdue follow-up with Done and Snooze, an interview today, top next actions. Click Done: the row disappears at once and a toast appears |
+| Pipeline | browser | <http://localhost:5173/pipeline> | Ten stage columns. Drag a Found card onto Applied: it moves immediately and a "follow-up scheduled" toast appears. Reload to confirm it persisted |
+| Keyboard move | browser | Tab to a card's grip handle, press Space, Left/Right arrows, Space | Card moves one column per arrow press |
+| Filters | browser | Pipeline filters | Priority, source and search narrow the cards |
+| Opportunity detail | browser | Click a card title | JD tab, interaction timeline, contacts, follow-ups, stage selector, Log interaction, Edit, Delete. An applied opportunity silent for 21+ days shows a "Mark as ghosted" banner |
+| Command palette | browser | Cmd+K (macOS) or Ctrl+K | Add opportunity, Log interaction, jump to a page or an opportunity |
+| Theme | browser | Sun/moon button in the sidebar | Dark by default, light on toggle, remembered after reload |
 
 ### Adding shadcn/ui components
 
