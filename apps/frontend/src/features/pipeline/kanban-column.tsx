@@ -17,7 +17,7 @@ export function KanbanColumn({ stage, opportunities }: KanbanColumnProps) {
     <section
       aria-label={`${stage.replace(/_/g, " ")} column, ${opportunities.length} opportunities`}
       className={cn(
-        "flex max-h-[calc(100vh-15rem)] min-h-48 w-72 shrink-0 flex-col rounded-xl border bg-muted/30 transition-colors duration-150",
+        "flex min-h-48 w-[82vw] max-w-72 shrink-0 snap-start flex-col md:max-h-[calc(100dvh-15rem)] sm:w-72 rounded-xl border bg-muted/30 transition-colors duration-150",
         isOver && "border-primary/60 bg-primary/5 ring-2 ring-primary/30",
       )}
     >

@@ -41,3 +41,12 @@ class TodayResponse(BaseModel):
     followups: list[TodayFollowup]
     interviews: list[TodayInterview]
     next_actions: list[NextAction]
+
+
+class SummaryResponse(BaseModel):
+    counts_per_stage: dict[Stage, int]
+    total: int
+    applied_total: int
+    responded_total: int
+    response_rate: float | None
+    interviews_this_week: int

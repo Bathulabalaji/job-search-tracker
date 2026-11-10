@@ -28,7 +28,11 @@ interface EditOpportunityDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-export function EditOpportunityDialog({ opportunity, open, onOpenChange }: EditOpportunityDialogProps) {
+export function EditOpportunityDialog({
+  opportunity,
+  open,
+  onOpenChange,
+}: EditOpportunityDialogProps) {
   const update = useUpdateOpportunity(opportunity.id)
   const {
     control,

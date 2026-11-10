@@ -1,10 +1,18 @@
-import { Clock, GripVertical } from "lucide-react"
+import { Clock, EllipsisVertical, GripVertical } from "lucide-react"
 import type { HTMLAttributes, Ref } from "react"
 import { Link } from "react-router-dom"
 
-import type { Opportunity } from "@/api/types"
+import { STAGES, type Opportunity, type Stage } from "@/api/types"
 import { PriorityBadge } from "@/components/common/priority-badge"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { STAGE_LABELS } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 function contactLabel(days: number): string {
@@ -18,6 +26,8 @@ interface CardViewProps extends HTMLAttributes<HTMLDivElement> {
   handleRef?: Ref<HTMLButtonElement> | undefined
   isDragging?: boolean
   isOverlay?: boolean
+  /** Tap-friendly alternative to dragging. */
+  onMove?: ((stage: Stage) => void) | undefined
   ref?: Ref<HTMLDivElement> | undefined
 }
 
@@ -28,6 +38,7 @@ export function OpportunityCardView({
   handleRef,
   isDragging = false,
   isOverlay = false,
+  onMove,
   className,
   ref,
   ...rest
@@ -62,12 +73,33 @@ export function OpportunityCardView({
           )}
           <p className="truncate text-sm text-muted-foreground">{o.role}</p>
         </div>
+        {onMove ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Move ${o.company} to another stage`}
+                className="-my-1 rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:p-1"
+              >
+                <EllipsisVertical className="size-4" aria-hidden />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
+              <DropdownMenuLabel>Move to</DropdownMenuLabel>
+              {STAGES.filter((stage) => stage !== o.stage).map((stage) => (
+                <DropdownMenuItem key={stage} onSelect={() => onMove(stage)}>
+                  {STAGE_LABELS[stage]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
         <button
           type="button"
           ref={handleRef}
           {...handleProps}
           aria-label={`Move ${o.company}. Press space to pick up, arrow keys to change column.`}
-          className="-mr-1 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          className="-my-1 -mr-1 hidden rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:fine)]:block"
         >
           <GripVertical className="size-4" aria-hidden />
         </button>

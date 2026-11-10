@@ -43,7 +43,11 @@ interface LogInteractionDialogProps {
   opportunityId?: number | undefined
 }
 
-export function LogInteractionDialog({ open, onOpenChange, opportunityId }: LogInteractionDialogProps) {
+export function LogInteractionDialog({
+  open,
+  onOpenChange,
+  opportunityId,
+}: LogInteractionDialogProps) {
   const create = useCreateInteraction()
   const opportunities = useOpportunities({}, open && opportunityId === undefined)
   const defaults: Values = {
@@ -87,7 +91,8 @@ export function LogInteractionDialog({ open, onOpenChange, opportunityId }: LogI
           onOpenChange(false)
           toast.success("Interaction logged")
         },
-        onError: (error) => toast.error("Could not log interaction", { description: error.message }),
+        onError: (error) =>
+          toast.error("Could not log interaction", { description: error.message }),
       },
     )
   })
@@ -103,7 +108,9 @@ export function LogInteractionDialog({ open, onOpenChange, opportunityId }: LogI
         <form onSubmit={(event) => void onSubmit(event)} className="space-y-5" noValidate>
           <DialogHeader>
             <DialogTitle>Log interaction</DialogTitle>
-            <DialogDescription>Calls, emails, messages and interviews reset the days-since-contact clock.</DialogDescription>
+            <DialogDescription>
+              Calls, emails, messages and interviews reset the days-since-contact clock.
+            </DialogDescription>
           </DialogHeader>
 
           {opportunityId === undefined ? (
@@ -117,13 +124,25 @@ export function LogInteractionDialog({ open, onOpenChange, opportunityId }: LogI
           ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <SelectField control={control} name="type" label="Type" options={TYPE_OPTIONS} />
-            <SelectField control={control} name="direction" label="Direction" options={DIRECTION_OPTIONS} />
+            <SelectField
+              control={control}
+              name="direction"
+              label="Direction"
+              options={DIRECTION_OPTIONS}
+            />
           </div>
           <Field label="Summary" error={errors.summary?.message}>
             {(a11y) => <Textarea {...a11y} {...register("summary")} rows={3} autoFocus />}
           </Field>
           <Field label="When" hint="Leave empty for now" error={errors.occurred_at?.message}>
-            {(a11y) => <Input {...a11y} {...register("occurred_at")} type="datetime-local" className="font-mono" />}
+            {(a11y) => (
+              <Input
+                {...a11y}
+                {...register("occurred_at")}
+                type="datetime-local"
+                className="font-mono"
+              />
+            )}
           </Field>
 
           <DialogFooter>

@@ -13,6 +13,12 @@ ACTIVE_STAGES: frozenset[Stage] = frozenset(
 )
 
 
+# Stages where the search for this opportunity is over (or paused).
+CLOSED_STAGES: frozenset[Stage] = frozenset(
+    {Stage.accepted, Stage.rejected, Stage.ghosted, Stage.parked}
+)
+
+
 def add_working_days(start: date, days: int) -> date:
     """Add Mon-Fri working days. Public holidays are not modelled."""
     current = start

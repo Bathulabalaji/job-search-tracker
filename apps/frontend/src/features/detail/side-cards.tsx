@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ContactDialog } from "@/features/contacts/contact-dialog"
 import { formatDate, titleCase } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { AddContactDialog } from "./add-contact-dialog"
 import { AddFollowupDialog } from "./add-followup-dialog"
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -33,7 +33,9 @@ export function DetailsCard({ opportunity: o }: { opportunity: Opportunity }) {
         <div className="space-y-2">
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-muted-foreground">Fit score</span>
-            <span className="font-mono">{o.fit_score === null ? "Not rated" : `${o.fit_score}/100`}</span>
+            <span className="font-mono">
+              {o.fit_score === null ? "Not rated" : `${o.fit_score}/100`}
+            </span>
           </div>
           <Progress value={o.fit_score ?? 0} aria-label="Fit score" />
         </div>
@@ -42,7 +44,9 @@ export function DetailsCard({ opportunity: o }: { opportunity: Opportunity }) {
           <Row label="Source">{titleCase(o.source)}</Row>
           <Row label="Location">
             {o.location ?? "—"}
-            {o.work_mode ? <span className="text-muted-foreground"> · {titleCase(o.work_mode)}</span> : null}
+            {o.work_mode ? (
+              <span className="text-muted-foreground"> · {titleCase(o.work_mode)}</span>
+            ) : null}
           </Row>
           <Row label="Expected CTC">{o.expected_ctc_note ?? "—"}</Row>
           <Row label="Next action">
@@ -101,7 +105,12 @@ export function ContactsCard({ opportunity }: { opportunity: Opportunity }) {
           Contacts
         </CardTitle>
         <CardAction>
-          <Button variant="ghost" size="icon" aria-label="Add contact" onClick={() => setAdding(true)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Add contact"
+            onClick={() => setAdding(true)}
+          >
             <Plus />
           </Button>
         </CardAction>
@@ -128,7 +137,10 @@ export function ContactsCard({ opportunity }: { opportunity: Opportunity }) {
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 pl-6 text-sm text-muted-foreground">
                 {c.email ? (
-                  <a className="inline-flex items-center gap-1 hover:underline" href={`mailto:${c.email}`}>
+                  <a
+                    className="inline-flex items-center gap-1 py-1 hover:underline"
+                    href={`mailto:${c.email}`}
+                  >
                     <Mail className="size-3" aria-hidden />
                     {c.email}
                   </a>
@@ -145,7 +157,7 @@ export function ContactsCard({ opportunity }: { opportunity: Opportunity }) {
           ))}
         </ul>
       </CardContent>
-      <AddContactDialog
+      <ContactDialog
         opportunityId={opportunity.id}
         defaultCompany={opportunity.company}
         open={adding}
@@ -221,7 +233,12 @@ export function FollowupsCard({
       <CardHeader>
         <CardTitle>Follow-ups</CardTitle>
         <CardAction>
-          <Button variant="ghost" size="icon" aria-label="Add follow-up" onClick={() => setAdding(true)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Add follow-up"
+            onClick={() => setAdding(true)}
+          >
             <Plus />
           </Button>
         </CardAction>
@@ -237,7 +254,9 @@ export function FollowupsCard({
           </p>
         ) : null}
         <ul className="divide-y">
-          {followups.data?.map((f) => <FollowupItem key={f.id} followup={f} today={today} />)}
+          {followups.data?.map((f) => (
+            <FollowupItem key={f.id} followup={f} today={today} />
+          ))}
         </ul>
       </CardContent>
       <AddFollowupDialog opportunityId={opportunity.id} open={adding} onOpenChange={setAdding} />

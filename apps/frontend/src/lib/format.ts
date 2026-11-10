@@ -23,7 +23,7 @@ export function addDays(iso: string, days: number): string {
 /** Days from `iso` until the next Monday after it. */
 export function daysUntilNextMonday(iso: string): number {
   const weekday = parseIsoDate(iso).getUTCDay() // 0 = Sunday
-  return ((8 - weekday) % 7) || 7
+  return (8 - weekday) % 7 || 7
 }
 
 export function formatDateTime(iso: string): string {
@@ -55,3 +55,19 @@ export const STAGE_LABELS: Record<Stage, string> = {
 }
 
 export const PRIORITY_LABELS: Record<number, string> = { 1: "High", 2: "Medium", 3: "Low" }
+
+/** '2026-11-09' -> '9 Nov' */
+export function formatShortDate(iso: string): string {
+  const date = parseIsoDate(iso)
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`
+}
+
+/** '2026-11-09' -> 'Mon' */
+export function formatWeekday(iso: string): string {
+  return DAYS[parseIsoDate(iso).getUTCDay()] ?? ""
+}
+
+/** 0.5 -> '50%'; null -> '—' */
+export function formatPercent(value: number | null): string {
+  return value === null ? "—" : `${Math.round(value * 100)}%`
+}

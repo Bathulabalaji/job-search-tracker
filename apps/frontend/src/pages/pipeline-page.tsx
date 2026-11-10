@@ -2,14 +2,15 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type Announcements,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core"
-import { Kanban, Plus, Search } from "lucide-react"
+import { Kanban, Search } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import type { OpportunityFilters } from "@/api/keys"
@@ -45,7 +46,7 @@ function BoardSkeleton() {
   return (
     <div className="flex gap-4 overflow-hidden" aria-busy="true" aria-label="Loading pipeline">
       {STAGES.slice(0, 5).map((stage) => (
-        <Skeleton key={stage} className="h-96 w-72 shrink-0" />
+        <Skeleton key={stage} className="h-96 w-[82vw] max-w-72 shrink-0 sm:w-72" />
       ))}
     </div>
   )
@@ -73,7 +74,9 @@ export function PipelinePage() {
 
   const sensors = useSensors(
     // A small distance lets plain clicks (open card) through without starting a drag.
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    // Touch: press and hold to pick a card up, so a normal swipe still scrolls the board.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: columnCoordinateGetter,
       keyboardCodes: { start: ["Space"], cancel: ["Escape"], end: ["Space"] },
@@ -90,7 +93,8 @@ export function PipelinePage() {
 
   const announcements: Announcements = {
     onDragStart: ({ active: a }) => `Picked up ${nameOf(data, a.id)}.`,
-    onDragOver: ({ over }) => (over && isStage(over.id) ? `Over ${STAGE_LABELS[over.id]}.` : undefined),
+    onDragOver: ({ over }) =>
+      over && isStage(over.id) ? `Over ${STAGE_LABELS[over.id]}.` : undefined,
     onDragEnd: ({ active: a, over }) =>
       over && isStage(over.id)
         ? `Dropped ${nameOf(data, a.id)} in ${STAGE_LABELS[over.id]}.`
@@ -117,17 +121,14 @@ export function PipelinePage() {
       <PageHeader
         title="Pipeline"
         description="Drag cards between stages. Moving to Applied or Screening schedules a follow-up."
-        actions={
-          <Button onClick={openAddOpportunity}>
-            <Plus />
-            Add opportunity
-          </Button>
-        }
       />
 
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
+        <div className="relative col-span-2 w-full sm:w-60">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -137,7 +138,7 @@ export function PipelinePage() {
           />
         </div>
         <Select value={priority} onValueChange={setPriority}>
-          <SelectTrigger className="w-40" aria-label="Filter by priority">
+          <SelectTrigger className="w-full sm:w-40" aria-label="Filter by priority">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -148,7 +149,7 @@ export function PipelinePage() {
           </SelectContent>
         </Select>
         <Select value={source} onValueChange={setSource}>
-          <SelectTrigger className="w-40" aria-label="Filter by source">
+          <SelectTrigger className="w-full sm:w-40" aria-label="Filter by source">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -194,7 +195,7 @@ export function PipelinePage() {
           onDragEnd={onDragEnd}
           onDragCancel={() => setActiveId(null)}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4">
+          <div className="-mx-4 flex snap-x snap-proximity gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:mx-0 sm:gap-4 sm:px-0">
             {STAGES.map((stage) => (
               <KanbanColumn key={stage} stage={stage} opportunities={byStage.get(stage) ?? []} />
             ))}

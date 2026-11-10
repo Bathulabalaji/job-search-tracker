@@ -11,11 +11,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { NAV_ITEMS } from "./nav"
 import { ThemeToggle } from "./theme-toggle"
 
 export function AppSidebar() {
+  const { setOpenMobile } = useSidebar()
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -24,7 +26,7 @@ export function AppSidebar() {
             <Command className="size-4" />
           </div>
           <span className="truncate font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-            Command Center
+            Jobs Tracker
           </span>
         </div>
       </SidebarHeader>
@@ -34,7 +36,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
                 <SidebarMenuItem key={to}>
-                  <NavLink to={to} end={to === "/"}>
+                  <NavLink to={to} end={to === "/"} onClick={() => setOpenMobile(false)}>
                     {({ isActive }) => (
                       <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
                         <span>

@@ -4,11 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApiError } from "@/api/client"
-import {
-  useDeleteOpportunity,
-  useMoveOpportunity,
-  useOpportunity,
-} from "@/api/opportunities"
+import { useDeleteOpportunity, useMoveOpportunity, useOpportunity } from "@/api/opportunities"
 import { STAGES, type Opportunity, type Stage } from "@/api/types"
 import { EmptyState } from "@/components/common/empty-state"
 import { ErrorState } from "@/components/common/error-state"
@@ -69,7 +65,8 @@ function DeleteDialog({
         <DialogHeader>
           <DialogTitle>Delete {opportunity.company}?</DialogTitle>
           <DialogDescription>
-            This also deletes its interactions and follow-ups. Contacts are kept but unlinked. This cannot be undone.
+            This also deletes its interactions and follow-ups. Contacts are kept but unlinked. This
+            cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -118,7 +115,7 @@ function Detail({ opportunity }: { opportunity: Opportunity }) {
     <div className="mx-auto max-w-6xl">
       <Link
         to="/pipeline"
-        className="mb-4 inline-flex items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground"
+        className="mb-3 inline-flex min-h-8 items-center gap-1 rounded-sm pr-2 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" aria-hidden />
         Pipeline
@@ -130,7 +127,7 @@ function Detail({ opportunity }: { opportunity: Opportunity }) {
           <p className="text-muted-foreground">{opportunity.role}</p>
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <Select value={opportunity.stage} onValueChange={onStageSelect}>
-              <SelectTrigger className="w-52" aria-label="Stage">
+              <SelectTrigger className="w-full min-w-0 sm:w-52" aria-label="Stage">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -153,7 +150,12 @@ function Detail({ opportunity }: { opportunity: Opportunity }) {
             <Pencil />
             Edit
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Delete opportunity" onClick={() => setDeleting(true)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Delete opportunity"
+            onClick={() => setDeleting(true)}
+          >
             <Trash2 />
           </Button>
         </div>
@@ -166,7 +168,8 @@ function Detail({ opportunity }: { opportunity: Opportunity }) {
         >
           <TriangleAlert className="size-4 text-amber-700 dark:text-amber-300" aria-hidden />
           <span className="flex-1">
-            No contact for <span className="font-mono">{opportunity.days_since_contact}</span> days. This one may have ghosted you.
+            No contact for <span className="font-mono">{opportunity.days_since_contact}</span> days.
+            This one may have ghosted you.
           </span>
           <Button size="sm" variant="outline" onClick={() => changeStage("ghosted")}>
             Mark as ghosted
@@ -174,8 +177,8 @@ function Detail({ opportunity }: { opportunity: Opportunity }) {
         </div>
       ) : null}
 
-      <div className="grid items-start gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+        <Card className="min-w-0 lg:col-span-2">
           <CardContent>
             <Tabs defaultValue="timeline">
               <TabsList>
@@ -183,11 +186,16 @@ function Detail({ opportunity }: { opportunity: Opportunity }) {
                 <TabsTrigger value="jd">Job description</TabsTrigger>
               </TabsList>
               <TabsContent value="timeline" className="pt-6">
-                <Timeline opportunityId={opportunity.id} onLog={() => openLogInteraction(opportunity.id)} />
+                <Timeline
+                  opportunityId={opportunity.id}
+                  onLog={() => openLogInteraction(opportunity.id)}
+                />
               </TabsContent>
               <TabsContent value="jd" className="pt-6">
                 {opportunity.jd_text ? (
-                  <div className="max-w-none whitespace-pre-wrap text-sm leading-relaxed">{opportunity.jd_text}</div>
+                  <div className="max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                    {opportunity.jd_text}
+                  </div>
                 ) : (
                   <EmptyState
                     icon={Pencil}
@@ -201,7 +209,7 @@ function Detail({ opportunity }: { opportunity: Opportunity }) {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <DetailsCard opportunity={opportunity} />
           <FollowupsCard opportunity={opportunity} today={todayIso} />
           <ContactsCard opportunity={opportunity} />
@@ -220,7 +228,10 @@ export function OpportunityDetailPage() {
   const validId = Number.isInteger(id) && id > 0
   const query = useOpportunity(id, validId)
 
-  if (!validId || (query.isError && query.error instanceof ApiError && query.error.status === 404)) {
+  if (
+    !validId ||
+    (query.isError && query.error instanceof ApiError && query.error.status === 404)
+  ) {
     return (
       <EmptyState
         icon={TriangleAlert}
@@ -235,6 +246,7 @@ export function OpportunityDetailPage() {
     )
   }
   if (query.isPending) return <DetailSkeleton />
-  if (query.isError) return <ErrorState message={query.error.message} onRetry={() => void query.refetch()} />
+  if (query.isError)
+    return <ErrorState message={query.error.message} onRetry={() => void query.refetch()} />
   return <Detail opportunity={query.data} />
 }

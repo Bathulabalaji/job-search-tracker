@@ -14,8 +14,7 @@ import type {
 export function useOpportunities(filters: OpportunityFilters, enabled = true) {
   return useQuery({
     queryKey: queryKeys.opportunities.list(filters),
-    queryFn: () =>
-      request<Opportunity[]>("/opportunities", { params: { ...filters, limit: 200 } }),
+    queryFn: () => request<Opportunity[]>("/opportunities", { params: { ...filters, limit: 200 } }),
     enabled,
   })
 }

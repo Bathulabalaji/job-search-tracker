@@ -93,6 +93,8 @@ class OpportunityService:
             Interaction(
                 opportunity_id=opp.id,
                 type=InteractionType.stage_change,
+                from_stage=old_stage,
+                to_stage=new_stage,
                 direction=Direction.out,
                 summary=summary,
                 occurred_at=self.clock.now(),

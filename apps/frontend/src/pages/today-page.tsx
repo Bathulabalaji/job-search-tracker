@@ -76,7 +76,10 @@ function NextActionItem({ action, index }: { action: NextAction; index: number }
             ) : null}
           </div>
         </div>
-        <ArrowRight className="mt-1 size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
+        <ArrowRight
+          className="mt-1 size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+          aria-hidden
+        />
       </Link>
     </li>
   )
@@ -84,7 +87,11 @@ function NextActionItem({ action, index }: { action: NextAction; index: number }
 
 function TodaySkeleton() {
   return (
-    <div className="grid gap-6 lg:grid-cols-3" aria-busy="true" aria-label="Loading today">
+    <div
+      className="grid grid-cols-1 gap-6 lg:grid-cols-3"
+      aria-busy="true"
+      aria-label="Loading today"
+    >
       <Skeleton className="h-96 lg:col-span-2" />
       <div className="space-y-6">
         <Skeleton className="h-40" />
@@ -102,15 +109,21 @@ export function TodayPage() {
     <div className="mx-auto max-w-6xl">
       <PageHeader
         title="Today"
-        description={data ? <span className="font-mono">{formatDate(data.today)}</span> : "Your day at a glance"}
+        description={
+          data ? (
+            <span className="font-mono">{formatDate(data.today)}</span>
+          ) : (
+            "Your day at a glance"
+          )
+        }
       />
 
       {isPending ? <TodaySkeleton /> : null}
       {isError ? <ErrorState message={error.message} onRetry={() => void refetch()} /> : null}
 
       {data ? (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Card className="min-w-0 lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarCheck className="size-4 text-primary" aria-hidden />

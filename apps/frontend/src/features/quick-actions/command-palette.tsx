@@ -53,7 +53,10 @@ export function CommandPalette({
             <Plus />
             Add opportunity
           </CommandItem>
-          <CommandItem onSelect={run(onLogInteraction)} keywords={["call", "email", "message", "note"]}>
+          <CommandItem
+            onSelect={run(onLogInteraction)}
+            keywords={["call", "email", "message", "note"]}
+          >
             <MessageSquarePlus />
             Log interaction
           </CommandItem>
@@ -63,7 +66,11 @@ export function CommandPalette({
 
         <CommandGroup heading="Go to">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-            <CommandItem key={to} onSelect={run(() => void navigate(to))} keywords={["page", "open"]}>
+            <CommandItem
+              key={to}
+              onSelect={run(() => void navigate(to))}
+              keywords={["page", "open"]}
+            >
               <Icon />
               {label}
             </CommandItem>

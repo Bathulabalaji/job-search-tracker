@@ -15,7 +15,10 @@ const NONE = "none"
 const optionalUrl = z
   .string()
   .max(1000)
-  .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), "Must start with http:// or https://")
+  .refine(
+    (value) => value === "" || /^https?:\/\/\S+$/i.test(value),
+    "Must start with http:// or https://",
+  )
 
 export const opportunitySchema = z.object({
   company: z.string().trim().min(1, "Company is required").max(200),

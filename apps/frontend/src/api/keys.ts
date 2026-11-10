@@ -14,5 +14,19 @@ export const queryKeys = {
   interactions: (opportunityId: number) => ["interactions", opportunityId] as const,
   followups: (opportunityId: number) => ["followups", opportunityId] as const,
   contacts: (opportunityId: number) => ["contacts", opportunityId] as const,
+  contactsList: (filters: { q?: string; role?: string }) => ["contacts", "list", filters] as const,
+  contactsAll: ["contacts"] as const,
+  resumes: (q: string) => ["resumes", q] as const,
+  resumesAll: ["resumes"] as const,
   dashboardToday: ["dashboard", "today"] as const,
+  dailyLogs: {
+    all: ["daily-logs"] as const,
+    range: (from: string, to: string) => ["daily-logs", "range", from, to] as const,
+    streak: ["daily-logs", "streak"] as const,
+  },
+  weeklyTargets: ["weekly-targets"] as const,
+  analyticsWeekly: (weekOf: string | undefined) =>
+    ["analytics", "weekly", weekOf ?? "current"] as const,
+  analytics: ["analytics"] as const,
+  prepItems: ["prep-items"] as const,
 }

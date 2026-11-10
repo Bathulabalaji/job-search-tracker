@@ -13,7 +13,11 @@ export function PriorityBadge({ priority, className }: { priority: number; class
   const label = PRIORITY_LABELS[priority] ?? `P${priority}`
   return (
     <span
-      className={cn("inline-flex items-center gap-1 text-xs font-medium", TONES[priority], className)}
+      className={cn(
+        "inline-flex items-center gap-1 text-xs font-medium",
+        TONES[priority],
+        className,
+      )}
       title={`${label} priority`}
     >
       <Flag className="size-3" aria-hidden />

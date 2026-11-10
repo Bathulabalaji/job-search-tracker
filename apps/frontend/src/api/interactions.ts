@@ -20,7 +20,9 @@ export function useCreateInteraction() {
     mutationFn: (body: InteractionCreate) =>
       request<Interaction>("/interactions", { method: "POST", body }),
     onSuccess: (created) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.interactions(created.opportunity_id) })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.interactions(created.opportunity_id),
+      })
       // days_since_contact changes on cards and the detail header.
       void queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all })
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] })

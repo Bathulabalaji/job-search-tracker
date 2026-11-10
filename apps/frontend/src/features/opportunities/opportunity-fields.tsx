@@ -42,18 +42,34 @@ export function OpportunityFields({ control, register, errors, full }: FieldsPro
           <Field label="Location" error={errors.location?.message}>
             {(a11y) => <Input {...a11y} {...register("location")} />}
           </Field>
-          <SelectField control={control} name="work_mode" label="Work mode" options={WORK_MODE_OPTIONS} />
+          <SelectField
+            control={control}
+            name="work_mode"
+            label="Work mode"
+            options={WORK_MODE_OPTIONS}
+          />
           <Field label="Fit score (0-100)" error={errors.fit_score?.message}>
-            {(a11y) => <Input {...a11y} {...register("fit_score")} inputMode="numeric" className="font-mono" />}
+            {(a11y) => (
+              <Input
+                {...a11y}
+                {...register("fit_score")}
+                inputMode="numeric"
+                className="font-mono"
+              />
+            )}
           </Field>
           <Field label="Stack tags" hint="Comma separated" error={errors.stack_tags?.message}>
-            {(a11y) => <Input {...a11y} {...register("stack_tags")} placeholder="python, fastapi" />}
+            {(a11y) => (
+              <Input {...a11y} {...register("stack_tags")} placeholder="python, fastapi" />
+            )}
           </Field>
           <Field label="Next action" error={errors.next_action?.message}>
             {(a11y) => <Input {...a11y} {...register("next_action")} />}
           </Field>
           <Field label="Next action due" error={errors.next_action_due?.message}>
-            {(a11y) => <Input {...a11y} {...register("next_action_due")} type="date" className="font-mono" />}
+            {(a11y) => (
+              <Input {...a11y} {...register("next_action_due")} type="date" className="font-mono" />
+            )}
           </Field>
           <div className="sm:col-span-2">
             <Field label="Expected CTC note" error={errors.expected_ctc_note?.message}>

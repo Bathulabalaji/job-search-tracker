@@ -78,9 +78,22 @@ export function AddFollowupDialog({ opportunityId, open, onOpenChange }: AddFoll
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Due date" error={errors.due_date?.message}>
-              {(a11y) => <Input {...a11y} {...register("due_date")} type="date" className="font-mono" autoFocus />}
+              {(a11y) => (
+                <Input
+                  {...a11y}
+                  {...register("due_date")}
+                  type="date"
+                  className="font-mono"
+                  autoFocus
+                />
+              )}
             </Field>
-            <SelectField control={control} name="channel" label="Channel" options={CHANNEL_OPTIONS} />
+            <SelectField
+              control={control}
+              name="channel"
+              label="Channel"
+              options={CHANNEL_OPTIONS}
+            />
           </div>
           <Field label="Message draft" error={errors.message_draft?.message}>
             {(a11y) => <Textarea {...a11y} {...register("message_draft")} rows={4} />}

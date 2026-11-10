@@ -30,7 +30,13 @@ const ICONS: Record<InteractionType, LucideIcon> = {
   stage_change: ArrowRightLeft,
 }
 
-function TimelineItem({ item, contactName }: { item: Interaction; contactName: string | undefined }) {
+function TimelineItem({
+  item,
+  contactName,
+}: {
+  item: Interaction
+  contactName: string | undefined
+}) {
   const Icon = ICONS[item.type]
   const system = item.type === "stage_change"
   return (
@@ -49,16 +55,17 @@ function TimelineItem({ item, contactName }: { item: Interaction; contactName: s
       </div>
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium">
-            {system ? "Stage change" : titleCase(item.type)}
-          </span>
+          <span className="font-medium">{system ? "Stage change" : titleCase(item.type)}</span>
           {!system ? (
             <span className="text-xs text-muted-foreground">
               {item.direction === "in" ? "Incoming" : "Outgoing"}
               {contactName ? ` · ${contactName}` : ""}
             </span>
           ) : null}
-          <time dateTime={item.occurred_at} className="ml-auto font-mono text-xs text-muted-foreground">
+          <time
+            dateTime={item.occurred_at}
+            className="ml-auto font-mono text-xs text-muted-foreground"
+          >
             {formatDateTime(item.occurred_at)}
           </time>
         </div>
@@ -90,7 +97,12 @@ export function Timeline({ opportunityId, onLog }: TimelineProps) {
     )
   }
   if (interactions.isError) {
-    return <ErrorState message={interactions.error.message} onRetry={() => void interactions.refetch()} />
+    return (
+      <ErrorState
+        message={interactions.error.message}
+        onRetry={() => void interactions.refetch()}
+      />
+    )
   }
   if (interactions.data.length === 0) {
     return (

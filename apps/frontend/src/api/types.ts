@@ -125,7 +125,9 @@ export interface FollowupCreate {
   message_draft: string | null
 }
 
-export type FollowupUpdate = Partial<Pick<Followup, "due_date" | "channel" | "message_draft" | "status">>
+export type FollowupUpdate = Partial<
+  Pick<Followup, "due_date" | "channel" | "message_draft" | "status">
+>
 
 export interface Contact {
   id: number
@@ -193,3 +195,176 @@ export interface TodayResponse {
   interviews: TodayInterview[]
   next_actions: NextAction[]
 }
+
+// ---- Daily logs, targets, prep, analytics -------------------------------------------------
+
+export interface DailyLog {
+  id: number
+  log_date: string
+  applications_sent: number
+  messages_sent: number
+  referrals_requested: number
+  problems_solved: number
+  mocks_done: number
+  hours_prep: number
+  notes: string | null
+}
+
+export type DailyLogCounts = Omit<DailyLog, "id" | "log_date" | "notes">
+
+export interface DailyLogCreate extends DailyLogCounts {
+  log_date: string
+  notes?: string | null
+}
+
+export type DailyLogUpdate = Partial<DailyLogCounts> & { notes?: string | null }
+
+export interface Streak {
+  today: string
+  current: number
+  longest: number
+  logged_today: boolean
+  last_active_date: string | null
+}
+
+export interface WeeklyTarget {
+  id: number
+  week_start: string
+  applications: number
+  messages: number
+  referrals: number
+  problems: number
+  mocks: number
+  interviews: number
+}
+
+export type WeeklyTargetValues = Omit<WeeklyTarget, "id" | "week_start">
+export type WeeklyTargetCreate = WeeklyTargetValues & { week_start: string }
+
+export const PREP_CATEGORIES = [
+  "python",
+  "fastapi",
+  "db",
+  "react",
+  "ai",
+  "system-design",
+  "behavioral",
+] as const
+export type PrepCategory = (typeof PREP_CATEGORIES)[number]
+
+export const PREP_STATUSES = ["todo", "doing", "done"] as const
+export type PrepStatus = (typeof PREP_STATUSES)[number]
+
+export interface PrepItem {
+  id: number
+  topic: string
+  category: PrepCategory
+  status: PrepStatus
+  confidence: number
+  notes: string | null
+}
+
+export interface PrepItemCreate {
+  topic: string
+  category: PrepCategory
+  status: PrepStatus
+  confidence: number
+  notes: string | null
+}
+
+export type PrepItemUpdate = Partial<PrepItemCreate>
+
+export type Metric = "applications" | "messages" | "referrals" | "problems" | "mocks" | "interviews"
+
+export interface WeeklyTotals {
+  applications: number
+  messages: number
+  referrals: number
+  problems: number
+  mocks: number
+  interviews: number
+  hours_prep: number
+}
+
+export interface MetricProgress {
+  metric: Metric
+  label: string
+  actual: number
+  target: number | null
+  percent: number | null
+}
+
+export interface DailyPoint {
+  date: string
+  applications: number
+  messages: number
+  referrals: number
+  problems: number
+  mocks: number
+  hours_prep: number
+}
+
+export interface WeekTrendPoint {
+  week_start: string
+  applications: number
+  messages: number
+  referrals: number
+  problems: number
+  mocks: number
+  interviews: number
+}
+
+export interface FunnelStep {
+  key: string
+  label: string
+  count: number
+  conversion_from_previous: number | null
+  conversion_from_start: number | null
+}
+
+export interface SourceResponse {
+  source: Source
+  applied: number
+  responded: number
+  response_rate: number | null
+}
+
+export interface Scorecard {
+  applications_total: number
+  response_rate: number | null
+  interview_rate: number | null
+  offers: number
+  active_opportunities: number
+  current_streak: number
+}
+
+export interface WeeklyAnalytics {
+  week_start: string
+  week_end: string
+  is_current_week: boolean
+  target: WeeklyTarget | null
+  target_carried_over: boolean
+  totals: WeeklyTotals
+  progress: MetricProgress[]
+  daily: DailyPoint[]
+  trend: WeekTrendPoint[]
+  funnel: FunnelStep[]
+  response_by_source: SourceResponse[]
+  scorecard: Scorecard
+}
+
+// ---- Resumes -------------------------------------------------------------------------------
+
+export interface Resume {
+  id: number
+  label: string
+  focus: string | null
+  file_name: string | null
+  version: string
+  notes: string | null
+}
+
+export type ResumeCreate = Omit<Resume, "id">
+export type ResumeUpdate = Partial<ResumeCreate>
+
+export type ContactUpdate = Partial<ContactCreate>

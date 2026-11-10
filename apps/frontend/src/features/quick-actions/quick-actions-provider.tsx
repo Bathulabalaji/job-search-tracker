@@ -46,7 +46,11 @@ export function QuickActionsProvider({ children }: { children: ReactNode }) {
         onLogInteraction={() => openLogInteraction()}
       />
       <QuickAddDialog open={addOpen} onOpenChange={setAddOpen} />
-      <LogInteractionDialog open={logOpen} onOpenChange={setLogOpen} opportunityId={logOpportunityId} />
+      <LogInteractionDialog
+        open={logOpen}
+        onOpenChange={setLogOpen}
+        opportunityId={logOpportunityId}
+      />
     </QuickActionsContext.Provider>
   )
 }

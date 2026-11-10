@@ -14,7 +14,11 @@ interface FieldProps {
   label: string
   error?: string | undefined
   hint?: string
-  children: (props: { id: string; "aria-invalid": boolean; "aria-describedby"?: string }) => ReactElement
+  children: (props: {
+    id: string
+    "aria-invalid": boolean
+    "aria-describedby"?: string
+  }) => ReactElement
 }
 
 /** Label + control + error, wired for screen readers. */

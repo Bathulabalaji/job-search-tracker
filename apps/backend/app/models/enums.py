@@ -64,3 +64,19 @@ class FollowupStatus(StrEnum):
     pending = "pending"
     done = "done"
     skipped = "skipped"
+
+
+class PrepCategory(StrEnum):
+    python = "python"
+    fastapi = "fastapi"
+    db = "db"
+    react = "react"
+    ai = "ai"
+    system_design = "system-design"
+    behavioral = "behavioral"
+
+
+class PrepStatus(StrEnum):
+    todo = "todo"
+    doing = "doing"
+    done = "done"

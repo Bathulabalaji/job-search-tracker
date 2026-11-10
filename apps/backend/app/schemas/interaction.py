@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from app.models.enums import Direction, InteractionType
+from app.models.enums import Direction, InteractionType, Stage
 from app.schemas.common import ORMModel, PatchModel
 
 
@@ -33,3 +33,5 @@ class InteractionRead(ORMModel):
     direction: Direction
     summary: str | None
     occurred_at: datetime
+    from_stage: Stage | None = None
+    to_stage: Stage | None = None
