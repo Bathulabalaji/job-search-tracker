@@ -15,7 +15,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { to: "/", label: "Today", icon: CalendarCheck },
+  { to: "/today", label: "Today", icon: CalendarCheck },
   { to: "/pipeline", label: "Pipeline", icon: Kanban },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/daily-log", label: "Daily log", icon: ClipboardList },

@@ -14,6 +14,13 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     css: false,
+    // Tests must not depend on a developer's local .env (e.g. a real Google client ID).
+    env: {
+      VITE_GOOGLE_CLIENT_ID: "",
+      VITE_TERMS_URL: "",
+      VITE_PRIVACY_URL: "",
+      VITE_API_BASE_URL: "http://localhost:8000/api/v1",
+    },
     restoreMocks: true,
   },
 })
