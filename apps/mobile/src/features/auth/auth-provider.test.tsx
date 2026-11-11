@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, render, screen, waitFor } from "@testing-library/react-native"
+import * as Notifications from "expo-notifications"
 import { Text } from "react-native"
 
 import { authApi, type AuthResponse, type AuthUser } from "@/api/auth"
@@ -119,6 +120,8 @@ describe("AuthProvider", () => {
     client.setQueryData(["x"], 1)
     await act(async () => captured.signOut())
     expect(storage.remove).toHaveBeenCalledWith(SESSION_KEY)
+    // The next person on this phone must not receive this account's reminders.
+    expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalled()
     expect(client.getQueryData(["x"])).toBeUndefined()
     expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated")
   })

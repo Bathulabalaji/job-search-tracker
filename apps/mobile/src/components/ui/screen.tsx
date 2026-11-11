@@ -13,6 +13,9 @@ import { space } from "@/theme/tokens"
 import { useTheme } from "@/theme/theme"
 import { Text } from "./text"
 
+/** Widest a content column gets. Phones are narrower, so they are unaffected. */
+export const MAX_CONTENT_WIDTH = 720
+
 interface ScreenProps {
   children: React.ReactNode
   /** Wrap in a ScrollView (default). Turn off when the screen owns a FlatList. */
@@ -54,14 +57,24 @@ export function Screen({
         ) : undefined
       }
       contentContainerStyle={[
-        { padding: space.lg, gap: space.lg, paddingBottom: space.xxl * 2 },
+        {
+          padding: space.lg,
+          gap: space.lg,
+          paddingBottom: space.xxl * 2,
+          // On tablets, keep a readable column in the middle instead of stretching edge to edge.
+          width: "100%",
+          maxWidth: MAX_CONTENT_WIDTH,
+          alignSelf: "center",
+        },
         contentStyle,
       ]}
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={[{ flex: 1 }, contentStyle]}>{children}</View>
+    <View style={[{ flex: 1, width: "100%", maxWidth: MAX_CONTENT_WIDTH, alignSelf: "center" }, contentStyle]}>
+      {children}
+    </View>
   )
 
   return (

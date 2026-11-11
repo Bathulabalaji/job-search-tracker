@@ -15,6 +15,8 @@ A native app built with Expo (React Native) that talks to the same FastAPI backe
 | Forms | react-hook-form + zod, in bottom sheets that lift above the keyboard. |
 | Charts | `react-native-svg`, with text summaries for screen readers. |
 | Theme | Dark by default, with System and Light in Account. |
+| Reminders | Optional (Account → Reminders). Local notifications at 9:00 AM on days you have follow-ups due, e.g. "2 follow-ups to do: Acme, Globex". Overdue ones roll into the next 9:00. They are scheduled on the phone from your pending follow-ups, refreshed whenever the app opens or follow-ups change, and cleared on sign-out. No push server or credentials needed. |
+| Tablets | Content is a centred column (max 720pt) instead of stretching edge to edge. |
 
 ## Run it
 
@@ -28,7 +30,7 @@ npm start                   # opens the Expo dev server
 Then press `i` (iOS simulator, needs Xcode) or `a` (Android emulator, needs Android Studio), or scan the QR code with **Expo Go** on a phone.
 
 - **Physical phone:** `localhost` is the phone itself. Set `EXPO_PUBLIC_API_BASE_URL` to your computer's LAN address (`http://192.168.x.x:8000/api/v1`) and start the backend with `--host 0.0.0.0`, or point at your deployed API.
-- **Google sign-in does not work in Expo Go.** It needs a development build (see below). Email sign-in works everywhere.
+- **Google sign-in does not work in Expo Go.** It needs a development build (see below). Email sign-in and reminders work everywhere.
 
 ## Google sign-in setup
 
@@ -72,5 +74,5 @@ npx expo export --platform ios --platform android   # proves both native bundles
 ## Known limits
 
 - Email links (verify email, reset password) open the **website** in the browser; you then sign in in the app. Opening them straight in the app needs universal links, which need a domain association file.
-- Push notifications for due follow-ups are not built.
+- Reminders are scheduled while the app runs, so they only cover follow-ups the app has seen (two weeks ahead). Follow-ups added on the website appear after the app is next opened. True server push (works with the app closed for days) is not built.
 - The app was verified by type-checking, unit tests, native bundle compilation and a web rendering of every screen. It has **not** been run on a physical device or simulator: check native tab bars, Google sign-in and haptics on real hardware before release.

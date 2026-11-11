@@ -16,7 +16,7 @@ import { STAGES } from "@/api/types"
 import { Chip, ChipRow } from "@/components/ui/chip"
 import { IconButton } from "@/components/ui/icon-button"
 import { OptionSheet } from "@/components/ui/option-sheet"
-import { ScreenHeader } from "@/components/ui/screen"
+import { MAX_CONTENT_WIDTH, ScreenHeader } from "@/components/ui/screen"
 import { SearchBar } from "@/components/ui/search-bar"
 import { SkeletonList } from "@/components/ui/skeleton"
 import { EmptyState, ErrorState } from "@/components/ui/states"
@@ -73,7 +73,7 @@ export default function PipelineScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={{ paddingHorizontal: space.lg, gap: space.md, paddingTop: space.sm }}>
+      <View style={{ paddingHorizontal: space.lg, gap: space.md, paddingTop: space.sm, width: "100%", maxWidth: MAX_CONTENT_WIDTH, alignSelf: "center" }}>
         <ScreenHeader
           title="Pipeline"
           subtitle={data ? `${data.length} opportunit${data.length === 1 ? "y" : "ies"}` : undefined}
@@ -136,6 +136,9 @@ export default function PipelineScreen() {
                   data={items}
                   keyExtractor={(o) => String(o.id)}
                   contentContainerStyle={{
+                    width: "100%",
+                    maxWidth: MAX_CONTENT_WIDTH,
+                    alignSelf: "center",
                     padding: space.lg,
                     paddingTop: space.sm,
                     gap: space.md,

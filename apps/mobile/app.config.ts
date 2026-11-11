@@ -40,6 +40,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-router",
     "expo-secure-store",
     "expo-web-browser",
+    ["expo-notifications", { color: "#6D70F5" }],
     [
       "expo-splash-screen",
       {
@@ -50,4 +51,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
+  extra: {
+    ...config.extra,
+    eas: {
+      projectId: "175d717e-e802-4f25-a624-ea413d893ba8",
+    },
+  },
 })

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { authApi, type AuthResponse, type AuthUser } from "@/api/auth"
 import { ApiError, setAuthHooks, setSessionToken } from "@/api/client"
 import { secureStorage } from "@/lib/secure-storage"
+import { cancelReminders } from "@/features/reminders/notifications"
 import { toast } from "@/lib/toast-bus"
 import { AuthContext, type AuthContextValue, type AuthState } from "./auth-context"
 
@@ -16,6 +17,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const forget = useCallback(async () => {
     setSessionToken(null)
     await secureStorage.remove(SESSION_KEY)
+    // The next person on this phone must not get this account's reminders.
+    await cancelReminders()
     // Another account must never see this one's cached data.
     queryClient.clear()
   }, [queryClient])

@@ -1,6 +1,6 @@
 import Constants from "expo-constants"
 import { useState } from "react"
-import { Alert, Linking, View } from "react-native"
+import { Alert, Linking, Platform, Switch, View } from "react-native"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,12 @@ import { Text } from "@/components/ui/text"
 import { WEB_URL } from "@/config/env"
 import { useAuth, useUser } from "@/features/auth/auth-context"
 import { ChangePasswordSheet, EditNameSheet } from "@/features/auth/account-forms"
+import {
+  cancelReminders,
+  ensureReminderPermission,
+  remindersSupported,
+} from "@/features/reminders/notifications"
+import { saveReminderSetting, useReminderSetting } from "@/features/reminders/settings"
 import { toast } from "@/lib/toast-bus"
 import { useTheme, type ThemePreference } from "@/theme/theme"
 
@@ -23,9 +29,32 @@ const THEME_OPTIONS = [
 export default function AccountScreen() {
   const user = useUser()
   const { signOut, signOutEverywhere } = useAuth()
-  const { preference, setPreference } = useTheme()
+  const { preference, setPreference, colors } = useTheme()
+  const remindersOn = useReminderSetting()
   const [editingName, setEditingName] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+
+  const toggleReminders = async (next: boolean) => {
+    if (!next) {
+      await saveReminderSetting(false)
+      await cancelReminders()
+      toast.info("Reminders off")
+      return
+    }
+    if ((await ensureReminderPermission()) === "denied") {
+      Alert.alert(
+        "Notifications are off",
+        "Allow notifications for Jobs Tracker in your phone's settings to get follow-up reminders.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Open settings", onPress: () => void Linking.openSettings() },
+        ],
+      )
+      return
+    }
+    await saveReminderSetting(true)
+    toast.success("Reminders on", "We'll nudge you at 9:00 AM when follow-ups are due.")
+  }
 
   const confirmSignOut = () =>
     Alert.alert("Sign out?", "You'll need to sign in again on this device.", [
@@ -61,6 +90,27 @@ export default function AccountScreen() {
         <SectionHeader title="Appearance" />
         <SegmentedControl options={THEME_OPTIONS} value={preference} onChange={(v: ThemePreference) => setPreference(v)} />
       </View>
+
+      {remindersSupported ? (
+        <View style={{ gap: 10 }}>
+          <SectionHeader title="Reminders" />
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: "600" }}>Follow-up reminders</Text>
+              <Text variant="small" tone="muted">
+                A notification at 9:00 AM on days you have follow-ups due.
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel="Follow-up reminders"
+              value={remindersOn}
+              onValueChange={(v) => void toggleReminders(v)}
+              trackColor={{ true: colors.primary, false: colors.border }}
+              thumbColor={Platform.OS === "android" ? colors.onPrimary : undefined}
+            />
+          </Card>
+        </View>
+      ) : null}
 
       <View style={{ gap: 10 }}>
         <SectionHeader title="Security" />
