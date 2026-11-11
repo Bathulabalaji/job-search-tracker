@@ -71,7 +71,8 @@ def get_email_sender(settings: SettingsDep) -> EmailSender:
 
 
 def get_google_verifier(settings: SettingsDep) -> GoogleTokenVerifier:
-    return GoogleIdTokenVerifier(settings.google_client_id)
+    audiences = settings.google_audiences
+    return GoogleIdTokenVerifier(audiences[0] if audiences else "", audiences[1:])
 
 
 def get_mailer(
@@ -105,8 +106,20 @@ class AuthContext:
     csrf_token: str
 
 
+def _bearer_token(request: Request) -> str | None:
+    scheme, _, value = request.headers.get("authorization", "").partition(" ")
+    token = value.strip()
+    return token if scheme.lower() == "bearer" and token else None
+
+
+def is_native_client(request: Request) -> bool:
+    """Mobile apps identify themselves so they get a bearer token instead of a cookie."""
+    return request.headers.get("x-client-type", "").lower() == "mobile"
+
+
 def _resolve(request: Request, db: Session, clock: Clock, settings: Settings) -> AuthContext | None:
-    raw = request.cookies.get(settings.cookie_name)
+    bearer = _bearer_token(request)
+    raw = bearer or request.cookies.get(settings.cookie_name)
     if not raw:
         return None
     resolved = SessionService(db, clock, settings).resolve(raw)
@@ -114,7 +127,9 @@ def _resolve(request: Request, db: Session, clock: Clock, settings: Settings) ->
         return None
     user, record = resolved
     expected = csrf_token_for(raw, settings.secret_key)
-    if request.method not in SAFE_METHODS:
+    # CSRF only matters for ambient credentials (cookies). A bearer token is attached
+    # explicitly by the app, which another website cannot do, so it needs no CSRF token.
+    if bearer is None and request.method not in SAFE_METHODS:
         supplied = request.headers.get(CSRF_HEADER, "")
         if not supplied or not constant_time_equals(supplied, expected):
             raise AuthError(

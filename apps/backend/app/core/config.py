@@ -49,6 +49,9 @@ class Settings(BaseSettings):
 
     # Google Sign-In. The client ID is public; no client secret is needed for ID-token sign-in.
     google_client_id: str = ""
+    # Extra OAuth client IDs whose ID tokens we accept: the iOS and Android app clients.
+    # Comma-separated. Native apps get tokens minted for their own client, not the web one.
+    google_extra_client_ids: str = ""
 
     # SendGrid. With no API key, emails are suppressed (and a warning is logged without the link).
     sendgrid_api_key: str = ""
@@ -75,6 +78,12 @@ class Settings(BaseSettings):
         if self.cookie_secure is not None:
             return self.cookie_secure
         return not self.frontend_is_local
+
+    @property
+    def google_audiences(self) -> list[str]:
+        """Every Google client ID an ID token may have been issued to (web first)."""
+        extras = [c.strip() for c in self.google_extra_client_ids.split(",")]
+        return [c for c in [self.google_client_id.strip(), *extras] if c]
 
     @property
     def allowed_origins(self) -> set[str]:

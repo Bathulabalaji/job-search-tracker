@@ -6,6 +6,7 @@ from app.api.auth_deps import (
     ClientIp,
     OptionalAuthDep,
     SettingsDep,
+    is_native_client,
 )
 from app.api.cookies import clear_session_cookie, set_session_cookie
 from app.core.security import csrf_token_for
@@ -30,6 +31,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _signed_in(
+    request: Request,
     response: Response,
     service: AuthService,
     settings: SettingsDep,
@@ -38,11 +40,14 @@ def _signed_in(
     *,
     is_new_user: bool = False,
 ) -> AuthResponse:
-    set_session_cookie(response, token, settings)
+    native = is_native_client(request)
+    if not native:
+        set_session_cookie(response, token, settings)
     return AuthResponse(
         user=service.profile(user),
         csrf_token=csrf_token_for(token, settings.secret_key),
         is_new_user=is_new_user,
+        session_token=token if native else None,
     )
 
 
@@ -65,7 +70,7 @@ def login(
     ip: ClientIp,
 ) -> AuthResponse:
     user, token = service.login(data, ip, request.headers.get("user-agent"))
-    return _signed_in(response, service, settings, user, token)
+    return _signed_in(request, response, service, settings, user, token)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -173,4 +178,4 @@ def google_login(
     user, token, is_new = service.google_login(
         data.credential, data.nonce, ip, request.headers.get("user-agent")
     )
-    return _signed_in(response, service, settings, user, token, is_new_user=is_new)
+    return _signed_in(request, response, service, settings, user, token, is_new_user=is_new)

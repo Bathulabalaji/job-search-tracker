@@ -75,3 +75,11 @@ class TestSameSite:
     def test_unknown_values_are_rejected(self) -> None:
         with pytest.raises(ValidationError):
             make(cookie_samesite="sometimes")
+
+
+def test_google_audiences_lists_web_then_extra_clients() -> None:
+    s = Settings(
+        google_client_id="web", google_extra_client_ids=" ios , android,, ", _env_file=None
+    )
+    assert s.google_audiences == ["web", "ios", "android"]
+    assert Settings(_env_file=None).google_audiences == []

@@ -112,3 +112,13 @@ def test_tokens_without_a_subject_or_email_are_refused(
     fake_google["result"] = claims
     with pytest.raises(GoogleAuthError):
         GoogleIdTokenVerifier(CLIENT_ID).verify("t")
+
+
+def test_tokens_for_any_configured_app_client_are_accepted(
+    fake_google: dict[str, object],
+) -> None:
+    GoogleIdTokenVerifier(CLIENT_ID, ["ios.apps.googleusercontent.com"]).verify("t")
+    assert fake_google["seen"] == {
+        "token": "t",
+        "audience": [CLIENT_ID, "ios.apps.googleusercontent.com"],
+    }

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -31,17 +32,19 @@ class GoogleIdTokenVerifier:
     Nothing from the browser is trusted except the signed token itself.
     """
 
-    def __init__(self, client_id: str) -> None:
+    def __init__(self, client_id: str, extra_client_ids: Sequence[str] = ()) -> None:
         self.client_id = client_id
+        self.audiences = [c for c in (client_id, *extra_client_ids) if c]
 
     def verify(self, credential: str) -> GoogleClaims:
-        if not self.client_id:
+        if not self.audiences:
             raise GoogleAuthError("GOOGLE_CLIENT_ID is not configured")
         try:
             info = id_token.verify_oauth2_token(  # type: ignore[no-untyped-call]
                 credential,
                 google_requests.Request(),
-                audience=self.client_id,  # rejects tokens minted for any other app
+                # Rejects tokens minted for any app that is not ours (web, iOS or Android).
+                audience=self.audiences[0] if len(self.audiences) == 1 else self.audiences,
                 clock_skew_in_seconds=10,
             )
         except (ValueError, GoogleLibError) as exc:

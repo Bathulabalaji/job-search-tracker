@@ -131,6 +131,9 @@ class AuthResponse(BaseModel):
     # Send this back in the X-CSRF-Token header on every POST/PATCH/PUT/DELETE.
     csrf_token: str
     is_new_user: bool = False
+    # Only sent to native apps (X-Client-Type: mobile), which keep it in the device's secure
+    # storage. Browsers never receive it: their session lives in an HttpOnly cookie.
+    session_token: str | None = None
 
 
 class MessageResponse(BaseModel):
