@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/career_command_center"
     )
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = ["http://localhost:5173", "https://job-search-tracker-blond.vercel.app"]
     # Single-user JWT login, off locally. Wired up in a later step.
     auth_enabled: bool = False
 
