@@ -13,6 +13,7 @@ class FollowupRepository(BaseRepository[Followup]):
     def has_pending(self, opportunity_id: int) -> bool:
         stmt = (
             select(Followup.id)
+            .where(Followup.user_id == self.user_id)
             .where(Followup.opportunity_id == opportunity_id)
             .where(Followup.status == FollowupStatus.pending)
             .limit(1)
@@ -28,7 +29,7 @@ class FollowupRepository(BaseRepository[Followup]):
         limit: int,
         offset: int,
     ) -> list[Followup]:
-        stmt = select(Followup)
+        stmt = select(Followup).where(Followup.user_id == self.user_id)
         if opportunity_id is not None:
             stmt = stmt.where(Followup.opportunity_id == opportunity_id)
         if status is not None:

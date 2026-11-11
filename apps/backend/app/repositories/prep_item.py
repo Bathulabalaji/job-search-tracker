@@ -17,7 +17,7 @@ class PrepItemRepository(BaseRepository[PrepItem]):
         limit: int,
         offset: int,
     ) -> list[PrepItem]:
-        stmt = select(PrepItem)
+        stmt = select(PrepItem).where(PrepItem.user_id == self.user_id)
         if category is not None:
             stmt = stmt.where(PrepItem.category == category)
         if status is not None:

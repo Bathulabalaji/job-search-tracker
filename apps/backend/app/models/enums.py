@@ -80,3 +80,17 @@ class PrepStatus(StrEnum):
     todo = "todo"
     doing = "doing"
     done = "done"
+
+
+class UserStatus(StrEnum):
+    active = "active"
+    suspended = "suspended"
+
+
+class AuthProvider(StrEnum):
+    google = "google"
+
+
+class AuthTokenPurpose(StrEnum):
+    verify_email = "verify_email"
+    reset_password = "reset_password"

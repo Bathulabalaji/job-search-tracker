@@ -3,10 +3,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.enums import PrepCategory, PrepStatus
+from app.models.mixins import OwnedMixin
 from app.models.types import enum_column
 
 
-class PrepItem(Base):
+class PrepItem(OwnedMixin, Base):
     __tablename__ = "prep_items"
     __table_args__ = (
         CheckConstraint("confidence BETWEEN 1 AND 5", name="confidence_range"),

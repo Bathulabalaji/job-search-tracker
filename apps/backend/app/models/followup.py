@@ -5,10 +5,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.enums import FollowupChannel, FollowupStatus
+from app.models.mixins import OwnedMixin
 from app.models.types import enum_column
 
 
-class Followup(Base):
+class Followup(OwnedMixin, Base):
     __tablename__ = "followups"
     __table_args__ = (Index("ix_followups_status_due", "status", "due_date"),)
 

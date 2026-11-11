@@ -17,7 +17,7 @@ class ContactRepository(BaseRepository[Contact]):
         limit: int,
         offset: int,
     ) -> list[Contact]:
-        stmt = select(Contact)
+        stmt = select(Contact).where(Contact.user_id == self.user_id)
         if opportunity_id is not None:
             stmt = stmt.where(Contact.opportunity_id == opportunity_id)
         if role is not None:

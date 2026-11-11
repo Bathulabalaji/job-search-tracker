@@ -9,9 +9,9 @@ from app.services.common import apply_patch
 
 
 class PrepItemService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self.session = session
-        self.items = PrepItemRepository(session)
+        self.items = PrepItemRepository(session, user_id)
 
     def list(
         self,

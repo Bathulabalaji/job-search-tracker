@@ -12,10 +12,10 @@ from app.services.common import apply_patch
 
 
 class DailyLogService:
-    def __init__(self, session: Session, clock: Clock) -> None:
+    def __init__(self, session: Session, clock: Clock, user_id: int) -> None:
         self.session = session
         self.clock = clock
-        self.logs = DailyLogRepository(session)
+        self.logs = DailyLogRepository(session, user_id)
 
     def list(
         self,

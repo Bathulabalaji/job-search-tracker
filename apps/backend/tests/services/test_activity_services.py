@@ -29,20 +29,20 @@ MONDAY = date(2026, 11, 9)
 
 
 def test_daily_log_defaults_to_today_and_zero_counts(db: Session, clock: Clock) -> None:
-    log = DailyLogService(db, clock).create(DailyLogCreate())
+    log = DailyLogService(db, clock, db.info["user_id"]).create(DailyLogCreate())
     assert log.log_date == TODAY
     assert (log.applications_sent, log.hours_prep) == (0, 0)
 
 
 def test_daily_log_rejects_duplicate_date(db: Session, clock: Clock) -> None:
-    svc = DailyLogService(db, clock)
+    svc = DailyLogService(db, clock, db.info["user_id"])
     svc.create(DailyLogCreate(log_date=TODAY, applications_sent=3))
     with pytest.raises(ConflictError):
         svc.create(DailyLogCreate(log_date=TODAY))
 
 
 def test_daily_log_update_changes_only_sent_fields(db: Session, clock: Clock) -> None:
-    svc = DailyLogService(db, clock)
+    svc = DailyLogService(db, clock, db.info["user_id"])
     log = svc.create(DailyLogCreate(applications_sent=3, messages_sent=5))
     updated = svc.update(log.id, DailyLogUpdate(messages_sent=9))
     assert (updated.applications_sent, updated.messages_sent) == (3, 9)
@@ -56,11 +56,11 @@ def test_daily_log_validates_ranges(bad: dict[str, int]) -> None:
 
 def test_daily_log_missing_raises(db: Session, clock: Clock) -> None:
     with pytest.raises(NotFoundError):
-        DailyLogService(db, clock).get(999_999)
+        DailyLogService(db, clock, db.info["user_id"]).get(999_999)
 
 
 def test_streak_counts_active_days_only(db: Session, clock: Clock) -> None:
-    svc = DailyLogService(db, clock)
+    svc = DailyLogService(db, clock, db.info["user_id"])
     svc.create(DailyLogCreate(log_date=TODAY, problems_solved=2))
     svc.create(DailyLogCreate(log_date=TODAY - timedelta(days=1), hours_prep=1.5))
     # A log full of zeros is a rest day: it must not extend the streak.
@@ -75,7 +75,7 @@ def test_streak_counts_active_days_only(db: Session, clock: Clock) -> None:
 
 
 def test_streak_survives_until_the_day_ends(db: Session, clock: Clock) -> None:
-    svc = DailyLogService(db, clock)
+    svc = DailyLogService(db, clock, db.info["user_id"])
     svc.create(DailyLogCreate(log_date=TODAY - timedelta(days=1), mocks_done=1))
     streak = svc.streak()
     assert (streak.current, streak.logged_today) == (1, False)
@@ -90,14 +90,14 @@ def test_weekly_target_must_start_on_monday() -> None:
 
 
 def test_weekly_target_one_per_week(db: Session) -> None:
-    svc = WeeklyTargetService(db)
+    svc = WeeklyTargetService(db, db.info["user_id"])
     svc.create(WeeklyTargetCreate(week_start=MONDAY, applications=10))
     with pytest.raises(ConflictError):
         svc.create(WeeklyTargetCreate(week_start=MONDAY))
 
 
 def test_weekly_target_update(db: Session) -> None:
-    svc = WeeklyTargetService(db)
+    svc = WeeklyTargetService(db, db.info["user_id"])
     target = svc.create(WeeklyTargetCreate(week_start=MONDAY, applications=10, messages=20))
     updated = svc.update(target.id, WeeklyTargetUpdate(applications=12))
     assert (updated.applications, updated.messages) == (12, 20)
@@ -107,7 +107,7 @@ def test_weekly_target_update(db: Session) -> None:
 
 
 def test_prep_item_crud_and_filters(db: Session) -> None:
-    svc = PrepItemService(db)
+    svc = PrepItemService(db, db.info["user_id"])
     a = svc.create(PrepItemCreate(topic="Async SQLAlchemy", category=PrepCategory.python))
     svc.create(PrepItemCreate(topic="Indexes", category=PrepCategory.db, status=PrepStatus.done))
 
@@ -133,11 +133,11 @@ def test_prep_confidence_is_1_to_5() -> None:
 
 @pytest.fixture
 def analytics(db: Session, clock: Clock) -> AnalyticsService:
-    return AnalyticsService(db, clock)
+    return AnalyticsService(db, clock, db.info["user_id"])
 
 
 def _log(db: Session, clock: Clock, day: date, **counts: float) -> None:
-    DailyLogService(db, clock).create(DailyLogCreate(log_date=day, **counts))
+    DailyLogService(db, clock, db.info["user_id"]).create(DailyLogCreate(log_date=day, **counts))
 
 
 def test_weekly_totals_zero_fill_and_progress(
@@ -146,7 +146,7 @@ def test_weekly_totals_zero_fill_and_progress(
     _log(db, clock, MONDAY, applications_sent=4, messages_sent=10, hours_prep=2.5)
     _log(db, clock, TODAY, applications_sent=3, problems_solved=5, hours_prep=1.0)
     _log(db, clock, MONDAY - timedelta(days=1), applications_sent=99)  # previous week: excluded
-    WeeklyTargetService(db).create(
+    WeeklyTargetService(db, db.info["user_id"]).create(
         WeeklyTargetCreate(week_start=MONDAY, applications=10, messages=20, problems=5)
     )
 
@@ -168,7 +168,7 @@ def test_weekly_totals_zero_fill_and_progress(
 def test_target_is_carried_over_from_an_earlier_week(
     analytics: AnalyticsService, db: Session
 ) -> None:
-    WeeklyTargetService(db).create(
+    WeeklyTargetService(db, db.info["user_id"]).create(
         WeeklyTargetCreate(week_start=MONDAY - timedelta(weeks=3), applications=8)
     )
     result = analytics.weekly()
@@ -200,8 +200,10 @@ def test_trend_has_eight_weeks_ending_on_selected_week(
 def test_interviews_come_from_interactions(
     analytics: AnalyticsService, db: Session, clock: Clock, settings: Settings
 ) -> None:
-    opp = OpportunityService(db, clock, settings).create(OpportunityCreate(company="A", role="B"))
-    interactions = InteractionService(db, clock)
+    opp = OpportunityService(db, clock, settings, db.info["user_id"]).create(
+        OpportunityCreate(company="A", role="B")
+    )
+    interactions = InteractionService(db, clock, db.info["user_id"])
     this_week = datetime(2026, 11, 12, 5, 0, tzinfo=UTC)
     last_week = this_week - timedelta(days=7)
     for moment in (this_week, last_week):
@@ -221,8 +223,8 @@ def test_interviews_come_from_interactions(
 
 
 def _funnel_fixture(db: Session, clock: Clock, settings: Settings) -> None:
-    svc = OpportunityService(db, clock, settings)
-    interactions = InteractionService(db, clock)
+    svc = OpportunityService(db, clock, settings, db.info["user_id"])
+    interactions = InteractionService(db, clock, db.info["user_id"])
 
     def create(company: str, source: Source) -> int:
         return svc.create(OpportunityCreate(company=company, role="Dev", source=source)).id
@@ -300,8 +302,8 @@ def test_summary_counts_every_stage_and_interviews_this_week(
     db: Session, clock: Clock, settings: Settings
 ) -> None:
     _funnel_fixture(db, clock, settings)
-    opp_id = OpportunityService(db, clock, settings).list(q="Silent")[0].id
-    InteractionService(db, clock).create(
+    opp_id = OpportunityService(db, clock, settings, db.info["user_id"]).list(q="Silent")[0].id
+    InteractionService(db, clock, db.info["user_id"]).create(
         InteractionCreate(
             opportunity_id=opp_id,
             type=InteractionType.interview,
@@ -309,7 +311,7 @@ def test_summary_counts_every_stage_and_interviews_this_week(
         )
     )
 
-    summary = DashboardService(db, clock).summary()
+    summary = DashboardService(db, clock, db.info["user_id"]).summary()
 
     assert set(summary.counts_per_stage) == set(Stage)
     assert summary.counts_per_stage[Stage.found] == 1
@@ -323,7 +325,7 @@ def test_summary_counts_every_stage_and_interviews_this_week(
 def test_move_records_structured_stage_history(
     db: Session, clock: Clock, settings: Settings
 ) -> None:
-    svc = OpportunityService(db, clock, settings)
+    svc = OpportunityService(db, clock, settings, db.info["user_id"])
     opp_id = svc.create(OpportunityCreate(company="A", role="B")).id
     result = svc.move(opp_id, MoveRequest(stage=Stage.applied))
     assert (result.interaction.from_stage, result.interaction.to_stage) == (

@@ -8,13 +8,14 @@ import argparse
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.clock import Clock
 from app.core.config import Settings, get_settings
 from app.db.base import Base
 from app.db.session import SessionLocal
+from app.models.contact import Contact
 from app.models.daily_log import DailyLog
 from app.models.enums import (
     ContactRole,
@@ -27,9 +28,12 @@ from app.models.enums import (
     Stage,
     WorkMode,
 )
+from app.models.followup import Followup
+from app.models.interaction import Interaction
 from app.models.opportunity import Opportunity
 from app.models.prep_item import PrepItem
 from app.models.resume import Resume
+from app.models.user import User
 from app.models.weekly_target import WeeklyTarget
 from app.schemas.contact import ContactCreate
 from app.schemas.daily_log import DailyLogCreate
@@ -52,12 +56,12 @@ from app.services.weekly_target import WeeklyTargetService
 TABLES = "followups, interactions, contacts, opportunities, daily_logs, weekly_targets, prep_items"
 
 
-def seed_opportunities(session: Session, settings: Settings) -> None:
+def seed_opportunities(session: Session, settings: Settings, user_id: int) -> None:
     clock = Clock(tz=ZoneInfo(settings.timezone))
-    opportunities = OpportunityService(session, clock, settings)
-    contacts = ContactService(session)
-    interactions = InteractionService(session, clock)
-    followups = FollowupService(session, clock)
+    opportunities = OpportunityService(session, clock, settings, user_id)
+    contacts = ContactService(session, user_id)
+    interactions = InteractionService(session, clock, user_id)
+    followups = FollowupService(session, clock, user_id)
     now = clock.now()
     today = clock.today()
 
@@ -321,8 +325,8 @@ RESUMES: list[tuple[str, str, str, str, str | None]] = [
 ]
 
 
-def seed_resumes(session: Session) -> None:
-    service = ResumeService(session)
+def seed_resumes(session: Session, user_id: int) -> None:
+    service = ResumeService(session, user_id)
     for label, focus, file_name, version, notes in RESUMES:
         service.create(
             ResumeCreate(
@@ -331,10 +335,10 @@ def seed_resumes(session: Session) -> None:
         )
 
 
-def seed_activity(session: Session, settings: Settings) -> None:
+def seed_activity(session: Session, settings: Settings, user_id: int) -> None:
     clock = Clock(tz=ZoneInfo(settings.timezone))
     today = clock.today()
-    logs = DailyLogService(session, clock)
+    logs = DailyLogService(session, clock, user_id)
     for index, (apps, msgs, refs, problems, mocks, hours) in enumerate(ACTIVITY):
         day = today - timedelta(days=len(ACTIVITY) - 1 - index)
         logs.create(
@@ -348,7 +352,7 @@ def seed_activity(session: Session, settings: Settings) -> None:
                 hours_prep=hours,
             )
         )
-    targets = WeeklyTargetService(session)
+    targets = WeeklyTargetService(session, user_id)
     targets.create(
         WeeklyTargetCreate(
             week_start=week_start(today),
@@ -362,52 +366,70 @@ def seed_activity(session: Session, settings: Settings) -> None:
     )
 
 
-def seed_prep(session: Session) -> None:
-    items = PrepItemService(session)
+def seed_prep(session: Session, user_id: int) -> None:
+    items = PrepItemService(session, user_id)
     for topic, category, status, confidence in PREP:
         items.create(
             PrepItemCreate(topic=topic, category=category, status=status, confidence=confidence)
         )
 
 
-def _count(session: Session, model: type[Base]) -> int:
-    return session.scalar(select(func.count()).select_from(model)) or 0
+def _count(session: Session, model: type[Base], user_id: int) -> int:
+    stmt = select(func.count()).select_from(model).where(model.user_id == user_id)  # type: ignore[attr-defined]
+    return session.scalar(stmt) or 0
+
+
+# Children first, so foreign keys never block the delete.
+RESET_ORDER: tuple[type[Base], ...] = (
+    Followup, Interaction, Contact, Opportunity, DailyLog, WeeklyTarget, PrepItem, Resume,
+)  # fmt: skip
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed sample data.")
-    parser.add_argument("--reset", action="store_true", help="Delete ALL existing data first.")
+    parser = argparse.ArgumentParser(description="Seed sample data for one account.")
+    parser.add_argument("--user-email", required=True, help="Email of an existing account.")
+    parser.add_argument(
+        "--reset", action="store_true", help="Delete that account's data first (not other users')."
+    )
     args = parser.parse_args()
     settings = get_settings()
 
     with SessionLocal() as session:
+        user = session.scalar(select(User).where(User.email == args.user_email.strip().lower()))
+        if user is None:
+            raise SystemExit(
+                f"No account for {args.user_email}. Register in the app, or create one with:\n"
+                "  uv run python -m app.scripts.auth_admin create-user EMAIL --name 'Your Name'"
+            )
+        uid = user.id
         if args.reset:
             if settings.environment != "local":
                 raise SystemExit("--reset is only allowed when ENVIRONMENT=local.")
-            session.execute(text(f"TRUNCATE {TABLES} RESTART IDENTITY CASCADE"))
+            for model in RESET_ORDER:
+                session.execute(delete(model).where(model.user_id == uid))  # type: ignore[attr-defined]
             session.commit()
 
-        # Each section seeds only if its own tables are empty, so re-running is safe.
-        if _count(session, Opportunity) == 0:
-            seed_opportunities(session, settings)
+        # Each section seeds only if that account has none of it yet, so re-running is safe.
+        if _count(session, Opportunity, uid) == 0:
+            seed_opportunities(session, settings, uid)
             print("Seeded opportunities, contacts, interactions and follow-ups.")
         else:
             print("Skipped opportunities (already present; use --reset to start over).")
 
-        if _count(session, DailyLog) == 0 and _count(session, WeeklyTarget) == 0:
-            seed_activity(session, settings)
+        if _count(session, DailyLog, uid) == 0 and _count(session, WeeklyTarget, uid) == 0:
+            seed_activity(session, settings, uid)
             print("Seeded 21 days of daily logs and this week's targets.")
         else:
             print("Skipped daily logs and targets (already present).")
 
-        if _count(session, PrepItem) == 0:
-            seed_prep(session)
+        if _count(session, PrepItem, uid) == 0:
+            seed_prep(session, uid)
             print("Seeded prep items.")
         else:
             print("Skipped prep items (already present).")
 
-        if _count(session, Resume) == 0:
-            seed_resumes(session)
+        if _count(session, Resume, uid) == 0:
+            seed_resumes(session, uid)
             print("Seeded resumes.")
         else:
             print("Skipped resumes (already present).")

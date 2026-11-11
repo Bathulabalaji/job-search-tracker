@@ -32,13 +32,13 @@ from app.services.common import apply_patch
 
 
 class OpportunityService:
-    def __init__(self, session: Session, clock: Clock, settings: Settings) -> None:
+    def __init__(self, session: Session, clock: Clock, settings: Settings, user_id: int) -> None:
         self.session = session
         self.clock = clock
         self.settings = settings
-        self.opportunities = OpportunityRepository(session)
-        self.interactions = InteractionRepository(session)
-        self.followups = FollowupRepository(session)
+        self.opportunities = OpportunityRepository(session, user_id)
+        self.interactions = InteractionRepository(session, user_id)
+        self.followups = FollowupRepository(session, user_id)
 
     # ---- reads -------------------------------------------------------------------------------
 

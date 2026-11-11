@@ -8,9 +8,9 @@ from app.services.common import apply_patch
 
 
 class ResumeService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self.session = session
-        self.resumes = ResumeRepository(session)
+        self.resumes = ResumeRepository(session, user_id)
 
     def list(self, *, q: str | None = None, limit: int = 100, offset: int = 0) -> list[Resume]:
         return self.resumes.list(q=q, limit=limit, offset=offset)

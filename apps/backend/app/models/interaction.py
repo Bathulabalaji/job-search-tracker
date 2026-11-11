@@ -5,10 +5,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.enums import Direction, InteractionType, Stage
+from app.models.mixins import OwnedMixin
 from app.models.types import enum_column
 
 
-class Interaction(Base):
+class Interaction(OwnedMixin, Base):
     __tablename__ = "interactions"
     __table_args__ = (
         Index("ix_interactions_opportunity_occurred", "opportunity_id", "occurred_at"),

@@ -8,9 +8,9 @@ from app.services.common import apply_patch
 
 
 class WeeklyTargetService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self.session = session
-        self.targets = WeeklyTargetRepository(session)
+        self.targets = WeeklyTargetRepository(session, user_id)
 
     def list(self, *, limit: int = 50, offset: int = 0) -> list[WeeklyTarget]:
         return self.targets.list(limit=limit, offset=offset)

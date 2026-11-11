@@ -18,7 +18,7 @@ from app.services.opportunity import OpportunityService
 
 @pytest.fixture
 def service(db: Session, clock: Clock, settings: Settings) -> OpportunityService:
-    return OpportunityService(db, clock, settings)
+    return OpportunityService(db, clock, settings, db.info["user_id"])
 
 
 def _followups(db: Session, opportunity_id: int) -> list[Followup]:
@@ -123,7 +123,9 @@ def test_followup_due_date_skips_weekend(db: Session, settings: Settings) -> Non
     from zoneinfo import ZoneInfo
 
     thursday = datetime(2026, 11, 12, 5, 0, tzinfo=UTC)
-    svc = OpportunityService(db, Clock(ZoneInfo(settings.timezone), lambda: thursday), settings)
+    svc = OpportunityService(
+        db, Clock(ZoneInfo(settings.timezone), lambda: thursday), settings, db.info["user_id"]
+    )
     opp_id = _new(svc, Stage.applied)
     (followup,) = _followups(db, opp_id)
     assert followup.due_date == date(2026, 11, 16)  # Thu + 2 working days = Mon
@@ -193,7 +195,7 @@ def test_move_missing_opportunity_raises(service: OpportunityService) -> None:
 
 
 def _log(db: Session, clock: Clock, opp_id: int, days_ago: int, kind: InteractionType) -> None:
-    InteractionService(db, clock).create(
+    InteractionService(db, clock, db.info["user_id"]).create(
         InteractionCreate(
             opportunity_id=opp_id, type=kind, occurred_at=clock.now() - timedelta(days=days_ago)
         )

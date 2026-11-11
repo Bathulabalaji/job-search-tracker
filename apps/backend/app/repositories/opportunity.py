@@ -22,8 +22,10 @@ class OpportunityRepository(BaseRepository[Opportunity]):
             .group_by(Interaction.opportunity_id)
             .subquery()
         )
-        return select(Opportunity, last_contact.c.last_contact_at).outerjoin(
-            last_contact, last_contact.c.opportunity_id == Opportunity.id
+        return (
+            select(Opportunity, last_contact.c.last_contact_at)
+            .outerjoin(last_contact, last_contact.c.opportunity_id == Opportunity.id)
+            .where(Opportunity.user_id == self.user_id)
         )
 
     def get_with_last_contact(

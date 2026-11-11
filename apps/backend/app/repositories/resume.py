@@ -8,7 +8,7 @@ class ResumeRepository(BaseRepository[Resume]):
     model = Resume
 
     def list(self, *, q: str | None, limit: int, offset: int) -> list[Resume]:
-        stmt = select(Resume)
+        stmt = select(Resume).where(Resume.user_id == self.user_id)
         if q:
             like = f"%{q}%"
             stmt = stmt.where(

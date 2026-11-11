@@ -20,10 +20,10 @@ TOP_NEXT_ACTIONS = 3
 
 
 class DashboardService:
-    def __init__(self, session: Session, clock: Clock) -> None:
+    def __init__(self, session: Session, clock: Clock, user_id: int) -> None:
         self.clock = clock
-        self.repo = DashboardRepository(session)
-        self.analytics = AnalyticsRepository(session)
+        self.repo = DashboardRepository(session, user_id)
+        self.analytics = AnalyticsRepository(session, user_id)
 
     def today(self) -> TodayResponse:
         today = self.clock.today()

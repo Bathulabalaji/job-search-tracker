@@ -2,9 +2,10 @@ from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.models.mixins import OwnedMixin
 
 
-class Resume(Base):
+class Resume(OwnedMixin, Base):
     """Metadata about a resume version. The file itself is never stored."""
 
     __tablename__ = "resumes"

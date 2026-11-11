@@ -13,11 +13,11 @@ from app.services.common import apply_patch
 
 
 class FollowupService:
-    def __init__(self, session: Session, clock: Clock) -> None:
+    def __init__(self, session: Session, clock: Clock, user_id: int) -> None:
         self.session = session
         self.clock = clock
-        self.followups = FollowupRepository(session)
-        self.opportunities = OpportunityRepository(session)
+        self.followups = FollowupRepository(session, user_id)
+        self.opportunities = OpportunityRepository(session, user_id)
 
     def list(
         self,

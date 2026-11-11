@@ -15,18 +15,20 @@ TODAY = date(2026, 11, 11)  # clock fixture: Wed 11 Nov 2026, 10:00 IST
 
 @pytest.fixture
 def service(db: Session, clock: Clock) -> DashboardService:
-    return DashboardService(db, clock)
+    return DashboardService(db, clock, db.info["user_id"])
 
 
 def _opp(db: Session, **kwargs: object) -> Opportunity:
-    opp = Opportunity(company=str(kwargs.pop("company", "Acme")), role="Dev", **kwargs)
+    opp = Opportunity(
+        user_id=db.info["user_id"], company=str(kwargs.pop("company", "Acme")), role="Dev", **kwargs
+    )
     db.add(opp)
     db.flush()
     return opp
 
 
 def _followup(db: Session, opp: Opportunity, due: date, status: FollowupStatus) -> None:
-    db.add(Followup(opportunity_id=opp.id, due_date=due, status=status))
+    db.add(Followup(user_id=db.info["user_id"], opportunity_id=opp.id, due_date=due, status=status))
     db.flush()
 
 
@@ -55,10 +57,20 @@ def test_interviews_today_uses_local_day_boundaries(service: DashboardService, d
     after = datetime(2026, 11, 11, 19, 0, tzinfo=UTC)  # 00:30 IST tomorrow
     for moment in (inside, before, after):
         db.add(
-            Interaction(opportunity_id=opp.id, type=InteractionType.interview, occurred_at=moment)
+            Interaction(
+                user_id=db.info["user_id"],
+                opportunity_id=opp.id,
+                type=InteractionType.interview,
+                occurred_at=moment,
+            )
         )
     db.add(  # right day but not an interview
-        Interaction(opportunity_id=opp.id, type=InteractionType.call, occurred_at=inside)
+        Interaction(
+            user_id=db.info["user_id"],
+            opportunity_id=opp.id,
+            type=InteractionType.call,
+            occurred_at=inside,
+        )
     )
     db.flush()
 

@@ -10,7 +10,7 @@ class InteractionRepository(BaseRepository[Interaction]):
     def list(
         self, *, opportunity_id: int | None, contact_id: int | None, limit: int, offset: int
     ) -> list[Interaction]:
-        stmt = select(Interaction)
+        stmt = select(Interaction).where(Interaction.user_id == self.user_id)
         if opportunity_id is not None:
             stmt = stmt.where(Interaction.opportunity_id == opportunity_id)
         if contact_id is not None:

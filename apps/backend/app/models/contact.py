@@ -3,10 +3,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.enums import ContactRole
+from app.models.mixins import OwnedMixin
 from app.models.types import enum_column
 
 
-class Contact(Base):
+class Contact(OwnedMixin, Base):
     __tablename__ = "contacts"
 
     id: Mapped[int] = mapped_column(primary_key=True)

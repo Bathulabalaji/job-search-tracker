@@ -10,10 +10,10 @@ from app.services.common import apply_patch
 
 
 class ContactService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self.session = session
-        self.contacts = ContactRepository(session)
-        self.opportunities = OpportunityRepository(session)
+        self.contacts = ContactRepository(session, user_id)
+        self.opportunities = OpportunityRepository(session, user_id)
 
     def list(
         self,

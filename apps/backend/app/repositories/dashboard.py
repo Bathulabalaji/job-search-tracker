@@ -10,12 +10,14 @@ from app.models.opportunity import Opportunity
 
 
 class DashboardRepository:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, user_id: int) -> None:
         self.session = session
+        self.user_id = user_id
 
     def due_followups(self, on_or_before: date) -> list[tuple[Followup, Opportunity]]:
         stmt = (
             select(Followup, Opportunity)
+            .where(Followup.user_id == self.user_id)
             .join(Opportunity, Opportunity.id == Followup.opportunity_id)
             .where(Followup.status == FollowupStatus.pending)
             .where(Followup.due_date <= on_or_before)
@@ -28,6 +30,7 @@ class DashboardRepository:
     ) -> list[tuple[Interaction, Opportunity]]:
         stmt = (
             select(Interaction, Opportunity)
+            .where(Interaction.user_id == self.user_id)
             .join(Opportunity, Opportunity.id == Interaction.opportunity_id)
             .where(Interaction.type == InteractionType.interview)
             .where(Interaction.occurred_at >= start)
@@ -39,6 +42,7 @@ class DashboardRepository:
     def open_with_next_action(self, closed: frozenset[Stage], limit: int) -> list[Opportunity]:
         stmt = (
             select(Opportunity)
+            .where(Opportunity.user_id == self.user_id)
             .where(Opportunity.next_action.is_not(None))
             .where(Opportunity.next_action != "")
             .where(Opportunity.stage.not_in(closed))

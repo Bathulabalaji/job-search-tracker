@@ -10,11 +10,16 @@ class DailyLogRepository(BaseRepository[DailyLog]):
     model = DailyLog
 
     def get_by_date(self, log_date: date) -> DailyLog | None:
-        return self.session.scalar(select(DailyLog).where(DailyLog.log_date == log_date))
+        return self.session.scalar(
+            select(DailyLog)
+            .where(DailyLog.user_id == self.user_id)
+            .where(DailyLog.log_date == log_date)
+        )
 
     def between(self, start: date, end: date) -> list[DailyLog]:
         stmt = (
             select(DailyLog)
+            .where(DailyLog.user_id == self.user_id)
             .where(DailyLog.log_date >= start)
             .where(DailyLog.log_date <= end)
             .order_by(DailyLog.log_date)
@@ -24,7 +29,7 @@ class DailyLogRepository(BaseRepository[DailyLog]):
     def list(
         self, *, date_from: date | None, date_to: date | None, limit: int, offset: int
     ) -> list[DailyLog]:
-        stmt = select(DailyLog)
+        stmt = select(DailyLog).where(DailyLog.user_id == self.user_id)
         if date_from is not None:
             stmt = stmt.where(DailyLog.log_date >= date_from)
         if date_to is not None:
@@ -41,5 +46,9 @@ class DailyLogRepository(BaseRepository[DailyLog]):
             + DailyLog.problems_solved
             + DailyLog.mocks_done
         )
-        stmt = select(DailyLog.log_date).where(or_(counts > 0, DailyLog.hours_prep > 0))
+        stmt = (
+            select(DailyLog.log_date)
+            .where(DailyLog.user_id == self.user_id)
+            .where(or_(counts > 0, DailyLog.hours_prep > 0))
+        )
         return set(self.session.scalars(stmt))

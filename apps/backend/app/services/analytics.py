@@ -45,11 +45,11 @@ METRICS: tuple[tuple[Metric, str], ...] = (
 
 
 class AnalyticsService:
-    def __init__(self, session: Session, clock: Clock) -> None:
+    def __init__(self, session: Session, clock: Clock, user_id: int) -> None:
         self.clock = clock
-        self.logs = DailyLogRepository(session)
-        self.targets = WeeklyTargetRepository(session)
-        self.analytics = AnalyticsRepository(session)
+        self.logs = DailyLogRepository(session, user_id)
+        self.targets = WeeklyTargetRepository(session, user_id)
+        self.analytics = AnalyticsRepository(session, user_id)
 
     def weekly(self, week_of: date | None = None) -> WeeklyAnalytics:
         today = self.clock.today()

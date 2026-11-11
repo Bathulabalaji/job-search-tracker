@@ -17,14 +17,14 @@ from app.services.interaction import InteractionService
 
 @pytest.fixture
 def opp_id(db: Session) -> int:
-    opp = Opportunity(company="Acme", role="Dev")
+    opp = Opportunity(user_id=db.info["user_id"], company="Acme", role="Dev")
     db.add(opp)
     db.flush()
     return opp.id
 
 
 def test_followup_done_sets_and_clears_done_at(db: Session, clock: Clock, opp_id: int) -> None:
-    svc = FollowupService(db, clock)
+    svc = FollowupService(db, clock, db.info["user_id"])
     f = svc.create(FollowupCreate(opportunity_id=opp_id, due_date=date(2026, 11, 12)))
     assert f.done_at is None
 
@@ -36,7 +36,7 @@ def test_followup_done_sets_and_clears_done_at(db: Session, clock: Clock, opp_id
 
 
 def test_followup_snooze_changes_due_date_only(db: Session, clock: Clock, opp_id: int) -> None:
-    svc = FollowupService(db, clock)
+    svc = FollowupService(db, clock, db.info["user_id"])
     f = svc.create(FollowupCreate(opportunity_id=opp_id, due_date=date(2026, 11, 12)))
     snoozed = svc.update(f.id, FollowupUpdate(due_date=date(2026, 11, 16)))
     assert snoozed.due_date == date(2026, 11, 16)
@@ -44,7 +44,7 @@ def test_followup_snooze_changes_due_date_only(db: Session, clock: Clock, opp_id
 
 
 def test_followup_list_filters_by_status_and_due(db: Session, clock: Clock, opp_id: int) -> None:
-    svc = FollowupService(db, clock)
+    svc = FollowupService(db, clock, db.info["user_id"])
     early = svc.create(FollowupCreate(opportunity_id=opp_id, due_date=date(2026, 11, 10)))
     svc.create(FollowupCreate(opportunity_id=opp_id, due_date=date(2026, 11, 20)))
     svc.update(early.id, FollowupUpdate(status=FollowupStatus.done))
@@ -56,13 +56,13 @@ def test_followup_list_filters_by_status_and_due(db: Session, clock: Clock, opp_
 
 def test_followup_requires_existing_opportunity(db: Session, clock: Clock) -> None:
     with pytest.raises(NotFoundError):
-        FollowupService(db, clock).create(
+        FollowupService(db, clock, db.info["user_id"]).create(
             FollowupCreate(opportunity_id=999_999, due_date=date(2026, 11, 12))
         )
 
 
 def test_interaction_defaults_occurred_at_to_now(db: Session, clock: Clock, opp_id: int) -> None:
-    i = InteractionService(db, clock).create(
+    i = InteractionService(db, clock, db.info["user_id"]).create(
         InteractionCreate(opportunity_id=opp_id, type=InteractionType.call)
     )
     assert i.occurred_at == clock.now()
@@ -71,7 +71,7 @@ def test_interaction_defaults_occurred_at_to_now(db: Session, clock: Clock, opp_
 def test_interaction_requires_existing_opportunity_and_contact(
     db: Session, clock: Clock, opp_id: int
 ) -> None:
-    svc = InteractionService(db, clock)
+    svc = InteractionService(db, clock, db.info["user_id"])
     with pytest.raises(NotFoundError):
         svc.create(InteractionCreate(opportunity_id=999_999, type=InteractionType.call))
     with pytest.raises(NotFoundError):
@@ -81,8 +81,8 @@ def test_interaction_requires_existing_opportunity_and_contact(
 
 
 def test_deleting_contact_keeps_interaction(db: Session, clock: Clock, opp_id: int) -> None:
-    contacts = ContactService(db)
-    interactions = InteractionService(db, clock)
+    contacts = ContactService(db, db.info["user_id"])
+    interactions = InteractionService(db, clock, db.info["user_id"])
     c = contacts.create(ContactCreate(name="Asha", opportunity_id=opp_id))
     i = interactions.create(
         InteractionCreate(opportunity_id=opp_id, contact_id=c.id, type=InteractionType.email)
@@ -93,7 +93,7 @@ def test_deleting_contact_keeps_interaction(db: Session, clock: Clock, opp_id: i
 
 
 def test_contact_search_and_opportunity_link(db: Session, opp_id: int) -> None:
-    svc = ContactService(db)
+    svc = ContactService(db, db.info["user_id"])
     svc.create(ContactCreate(name="Asha Rao", company="Acme", opportunity_id=opp_id))
     svc.create(ContactCreate(name="Ben Cole", company="Globex"))
     assert [c.name for c in svc.list(q="acme")] == ["Asha Rao"]
@@ -101,7 +101,7 @@ def test_contact_search_and_opportunity_link(db: Session, opp_id: int) -> None:
 
 
 def test_contact_update_rejects_unknown_opportunity(db: Session) -> None:
-    svc = ContactService(db)
+    svc = ContactService(db, db.info["user_id"])
     c = svc.create(ContactCreate(name="Asha"))
     with pytest.raises(NotFoundError):
         svc.update(c.id, ContactUpdate(opportunity_id=999_999))

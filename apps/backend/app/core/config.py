@@ -1,6 +1,12 @@
+import secrets
 from functools import lru_cache
+from typing import Literal
+from urllib.parse import urlparse
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "[::1]", "::1"}
 
 
 class Settings(BaseSettings):
@@ -11,15 +17,92 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/career_command_center"
     )
-    cors_origins: list[str] = ["http://localhost:5173", "https://job-search-tracker-blond.vercel.app"]
-    # Single-user JWT login, off locally. Wired up in a later step.
-    auth_enabled: bool = False
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "https://job-search-tracker-blond.vercel.app",
+    ]
 
     # Timezone used to decide what "today" and "working day" mean.
     timezone: str = "Asia/Kolkata"
     # Auto-rules from the brief.
     followup_working_days: int = 2
     ghost_after_days: int = 21
+
+    # ---- Authentication ----------------------------------------------------------------------
+    # Public URL of the React app. Email links point here; it is never taken from a request.
+    frontend_url: str = "http://localhost:5173"
+    # Signs CSRF tokens. Required (32+ chars) unless the frontend runs on localhost.
+    secret_key: str = ""
+
+    # Session cookie. `cookie_secure=None` means "secure unless the frontend is on localhost".
+    cookie_name: str = "session"
+    cookie_secure: bool | None = None
+    # Use "none" only when the frontend and API are on different sites AND browsers allow
+    # third-party cookies. A same-origin proxy (see README) is the more reliable option.
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    cookie_domain: str | None = None
+
+    session_ttl_days: int = 30  # absolute lifetime
+    session_idle_days: int = 7  # signed out after this long without use
+    email_verification_ttl_hours: int = 24
+    password_reset_ttl_minutes: int = 30
+
+    # Google Sign-In. The client ID is public; no client secret is needed for ID-token sign-in.
+    google_client_id: str = ""
+
+    # SendGrid. With no API key, emails are suppressed (and a warning is logged without the link).
+    sendgrid_api_key: str = ""
+    email_from_address: str = ""
+    email_from_name: str = "Career Command Center"
+    email_reply_to: str = ""
+
+    # Local development helpers. Refused unless the frontend runs on localhost.
+    auto_verify_email: bool = False
+
+    # Unclaimed pre-accounts data goes to this email's account once it is verified. When empty,
+    # the first account to verify claims it. SET THIS IN PRODUCTION.
+    legacy_data_owner_email: str = ""
+
+    # How many reverse proxies sit in front of the API (0 = trust nothing, use the socket IP).
+    trusted_proxy_count: int = 0
+
+    @property
+    def frontend_is_local(self) -> bool:
+        return (urlparse(self.frontend_url).hostname or "") in LOCAL_HOSTS
+
+    @property
+    def effective_cookie_secure(self) -> bool:
+        if self.cookie_secure is not None:
+            return self.cookie_secure
+        return not self.frontend_is_local
+
+    @property
+    def allowed_origins(self) -> set[str]:
+        """Origins allowed to make state-changing requests (CORS list plus the frontend URL)."""
+        parsed = urlparse(self.frontend_url)
+        frontend = f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else ""
+        return {o.rstrip("/") for o in self.cors_origins} | ({frontend} if frontend else set())
+
+    @model_validator(mode="after")
+    def _validate_security(self) -> "Settings":
+        if not self.secret_key:
+            if not self.frontend_is_local:
+                raise ValueError(
+                    "SECRET_KEY must be set (32+ random characters) when FRONTEND_URL is not "
+                    "localhost. Generate one with: python -c 'import secrets; "
+                    "print(secrets.token_urlsafe(48))'"
+                )
+            # Local only: an ephemeral key. Sessions survive restarts; CSRF tokens are re-issued.
+            self.secret_key = secrets.token_urlsafe(48)
+        elif len(self.secret_key) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters")
+        if self.cookie_samesite == "none" and not self.effective_cookie_secure:
+            raise ValueError("COOKIE_SAMESITE=none requires secure cookies (COOKIE_SECURE=true)")
+        if self.auto_verify_email and not self.frontend_is_local:
+            raise ValueError("AUTO_VERIFY_EMAIL is only allowed when FRONTEND_URL is localhost")
+        if not self.frontend_is_local and not self.frontend_url.startswith("https://"):
+            raise ValueError("FRONTEND_URL must use https:// outside local development")
+        return self
 
 
 @lru_cache

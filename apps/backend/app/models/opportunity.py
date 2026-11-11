@@ -5,10 +5,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.enums import Source, Stage, WorkMode
+from app.models.mixins import OwnedMixin
 from app.models.types import enum_column
 
 
-class Opportunity(Base):
+class Opportunity(OwnedMixin, Base):
     __tablename__ = "opportunities"
     __table_args__ = (
         CheckConstraint("priority BETWEEN 1 AND 3", name="priority_range"),
