@@ -43,7 +43,7 @@ Layout: `app/api` (routers), `app/services`, `app/repositories`, `app/models`, `
 | --- | --- | --- | --- |
 | Health endpoint | any | `curl http://localhost:8000/api/v1/health` | `{"status":"ok"}` |
 | OpenAPI docs | browser | <http://localhost:8000/docs> | Swagger UI listing health, opportunities, contacts, interactions, followups |
-| Tests | `apps/backend` | `uv run pytest` | 450 passed |
+| Tests | `apps/backend` | `uv run pytest` | 470 passed |
 | Types | `apps/backend` | `uv run mypy` | `Success: no issues found` |
 | Lint | `apps/backend` | `uv run ruff check .` | `All checks passed!` |
 | Alembic connects | `apps/backend` | `uv run alembic current` | `0004 (head)` after you run the migration below |
@@ -82,7 +82,7 @@ The script has four independent sections, and each runs only if that account has
 From `apps/backend`:
 
 ```bash
-uv run pytest            # 450 tests
+uv run pytest            # 470 tests
 uv run pytest tests/unit # pure rules only, no database needed
 ```
 
@@ -327,6 +327,28 @@ uv run python -m app.scripts.llm_admin status                # budget, cooldowns
 uv run python -m app.scripts.llm_admin usage --since 7d      # calls, tokens and errors per model/task
 uv run python -m app.scripts.llm_admin reset-cooldowns       # after fixing a key or a provider outage
 ```
+
+### Chat (Phase 1)
+
+The assistant page (`/assistant` on the web, More → Assistant in the app) answers questions about
+the signed-in user's own data. It is read-only for now: it can look things up but not change them.
+
+- **API** (`/api/v1/chat`): `GET /config`; `GET|POST /conversations`;
+  `GET|PATCH|DELETE /conversations/{id}`; `POST /conversations/{id}/messages` answers with
+  server-sent events (`run_started`, `token`, `tool_start`, `tool_end`, `model_switched`,
+  `notice`, `error`, `done`); `POST .../runs/{run_id}/resume` continues a reply that failed on
+  capacity from its last completed step; `POST .../runs/{run_id}/cancel` stops one.
+- **How a turn runs** (`app/assistant/`): a LangGraph graph, guardrail → (polite decline |
+  agent ⇄ read-only tools). Tools wrap the existing services, so data is always the user's own.
+  Older turns are folded into a rolling summary so prompts stay small enough for Groq.
+- **Limits**: `CHAT_DAILY_MESSAGES` (60) and `CHAT_PER_MINUTE` (6) per user, one reply at a time
+  per conversation, 2,000 characters per message.
+- **Checkpoints**: LangGraph keeps run state in Postgres (tables `checkpoints`,
+  `checkpoint_blobs`, `checkpoint_writes`, `checkpoint_migrations`). They are created
+  automatically on the first chat, outside Alembic, and deleted when a run finishes.
+- **Deploying**: run `alembic upgrade head` (migration `0006`) on Neon, and set `GROQ_API_KEY` /
+  `GOOGLE_AI_API_KEY` on Render. If replies arrive all at once instead of word by word, a proxy
+  is buffering the stream: the page still works, just without the typing effect.
 
 Every provider call is a row in `provider_usage_events` (tokens, latency, outcome; never the
 prompt). Logs carry the same fields under the `llm_call` event. Optional LangSmith tracing

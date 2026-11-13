@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from app.api import (
     analytics,
     auth,
+    chat,
     contacts,
     daily_logs,
     dashboard,
@@ -35,5 +36,6 @@ for module in (
     prep_items,
     analytics,
     resumes,
+    chat,
 ):
     api_router.include_router(module.router, dependencies=_protected)

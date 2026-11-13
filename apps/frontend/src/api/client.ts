@@ -1,5 +1,6 @@
 import { getCsrfToken } from "@/lib/csrf"
 import { API_BASE_URL } from "@/lib/env"
+import { createSseParser } from "@/lib/sse"
 
 export class ApiError extends Error {
   readonly status: number
@@ -82,6 +83,31 @@ interface RequestOptions {
   params?: QueryParams
 }
 
+async function errorFrom(response: Response): Promise<ApiError> {
+  let detail: unknown
+  let code: unknown
+  try {
+    const data = (await response.json()) as { detail?: unknown; code?: unknown }
+    detail = data.detail
+    code = data.code
+  } catch {
+    detail = undefined
+  }
+  const retryHeader = Number(response.headers.get("Retry-After"))
+  return new ApiError(
+    response.status,
+    describeDetail(detail),
+    typeof code === "string" ? code : undefined,
+    Number.isFinite(retryHeader) && retryHeader > 0 ? retryHeader : undefined,
+  )
+}
+
+function reportSessionProblems(error: ApiError, path: string): void {
+  if (error.status === 401 && !PUBLIC_AUTH_PATHS.some((p) => path.startsWith(p))) {
+    hooks?.onSessionExpired()
+  }
+}
+
 async function send<T>(path: string, options: RequestOptions, retriedCsrf: boolean): Promise<T> {
   const { method = "GET", body, params } = options
   const headers: Record<string, string> = {}
@@ -103,30 +129,12 @@ async function send<T>(path: string, options: RequestOptions, retriedCsrf: boole
   }
 
   if (!response.ok) {
-    let detail: unknown
-    let code: unknown
-    try {
-      const data = (await response.json()) as { detail?: unknown; code?: unknown }
-      detail = data.detail
-      code = data.code
-    } catch {
-      detail = undefined
-    }
-    const retryHeader = Number(response.headers.get("Retry-After"))
-    const error = new ApiError(
-      response.status,
-      describeDetail(detail),
-      typeof code === "string" ? code : undefined,
-      Number.isFinite(retryHeader) && retryHeader > 0 ? retryHeader : undefined,
-    )
-
+    const error = await errorFrom(response)
     // A stale CSRF token (after a restart or a new session): refresh it once and retry.
     if (error.code === "csrf_failed" && !retriedCsrf && hooks && (await hooks.refreshCsrf())) {
       return send<T>(path, options, true)
     }
-    if (error.status === 401 && !PUBLIC_AUTH_PATHS.some((p) => path.startsWith(p))) {
-      hooks?.onSessionExpired()
-    }
+    reportSessionProblems(error, path)
     throw error
   }
   if (response.status === 204) return undefined as T
@@ -144,4 +152,61 @@ export function retryMessage(error: ApiError): string {
   if (!seconds) return error.message
   const minutes = Math.ceil(seconds / 60)
   return `${error.message} Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`
+}
+
+/**
+ * POST that answers with server-sent events (the assistant's reply). Calls `onEvent` with
+ * each event's name and parsed JSON data until the stream ends. Errors before the stream
+ * starts (409, 429, 503...) throw an ApiError, exactly like `request`.
+ */
+export async function streamRequest(
+  path: string,
+  body: unknown,
+  onEvent: (event: string, data: unknown) => void,
+  signal?: AbortSignal,
+  retriedCsrf = false,
+): Promise<void> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+  }
+  const csrf = getCsrfToken()
+  if (csrf) headers["X-CSRF-Token"] = csrf
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    })
+  } catch (error) {
+    if (signal?.aborted) throw error
+    throw new ApiError(0, "Cannot reach the API. Is the backend running?")
+  }
+  if (!response.ok) {
+    const error = await errorFrom(response)
+    if (error.code === "csrf_failed" && !retriedCsrf && hooks && (await hooks.refreshCsrf())) {
+      return streamRequest(path, body, onEvent, signal, true)
+    }
+    reportSessionProblems(error, path)
+    throw error
+  }
+  if (!response.body) throw new ApiError(0, "The server sent an empty response.")
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  const feed = createSseParser((event, data) => {
+    let parsed: unknown = null
+    try {
+      parsed = JSON.parse(data) as unknown
+    } catch {
+      parsed = data
+    }
+    onEvent(event, parsed)
+  })
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    feed(value)
+  }
 }

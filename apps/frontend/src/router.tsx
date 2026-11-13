@@ -61,6 +61,15 @@ export const router = createBrowserRouter([
               return { Component: AnalyticsPage }
             },
           },
+          {
+            path: "assistant",
+            // Full height, no page padding: the chat manages its own scrolling.
+            handle: { fullBleed: true },
+            lazy: async () => {
+              const { AssistantPage } = await import("@/pages/assistant-page")
+              return { Component: AssistantPage }
+            },
+          },
           { path: "daily-log", element: <DailyLogPage /> },
           { path: "prep", element: <PrepPage /> },
           { path: "contacts", element: <ContactsPage /> },

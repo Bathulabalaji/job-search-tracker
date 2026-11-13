@@ -1,9 +1,20 @@
 from typing import Annotated
 
 from fastapi import Depends
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
-from app.api.auth_deps import ClockDep, CurrentUser, DbSession, SettingsDep
+from app.api.auth_deps import (
+    ClockDep,
+    CurrentUser,
+    DbSession,
+    LLMProvidersDep,
+    SettingsDep,
+    get_checkpointer,
+    get_session_scope,
+)
+from app.assistant.runner import SessionScope, TurnRunner
 from app.services.analytics import AnalyticsService
+from app.services.chat import ChatService
 from app.services.contact import ContactService
 from app.services.daily_log import DailyLogService
 from app.services.dashboard import DashboardService
@@ -69,3 +80,35 @@ WeeklyTargetServiceDep = Annotated[WeeklyTargetService, Depends(get_weekly_targe
 PrepItemServiceDep = Annotated[PrepItemService, Depends(get_prep_item_service)]
 AnalyticsServiceDep = Annotated[AnalyticsService, Depends(get_analytics_service)]
 ResumeServiceDep = Annotated[ResumeService, Depends(get_resume_service)]
+
+
+def get_chat_service(
+    db: DbSession, clock: ClockDep, settings: SettingsDep, user: CurrentUser
+) -> ChatService:
+    return ChatService(db, clock, settings, user.id)
+
+
+CheckpointerDep = Annotated[BaseCheckpointSaver[str], Depends(get_checkpointer)]
+
+
+def get_turn_runner(
+    settings: SettingsDep,
+    clock: ClockDep,
+    user: CurrentUser,
+    providers: LLMProvidersDep,
+    checkpointer: CheckpointerDep,
+    session_scope: Annotated[SessionScope, Depends(get_session_scope)],
+) -> TurnRunner:
+    return TurnRunner(
+        session_scope=session_scope,
+        settings=settings,
+        clock=clock,
+        providers=providers,
+        checkpointer=checkpointer,
+        user_id=user.id,
+        first_name=(user.full_name.split() or ["there"])[0],
+    )
+
+
+ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
+TurnRunnerDep = Annotated[TurnRunner, Depends(get_turn_runner)]

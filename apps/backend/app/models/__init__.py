@@ -1,4 +1,5 @@
 from app.models.auth import AuthIdentity, AuthToken, RateLimitEvent, UserSession
+from app.models.chat import ChatConversation, ChatMessage, ChatRun
 from app.models.contact import Contact
 from app.models.daily_log import DailyLog
 from app.models.followup import Followup
@@ -13,6 +14,9 @@ from app.models.weekly_target import WeeklyTarget
 __all__ = [
     "AuthIdentity",
     "AuthToken",
+    "ChatConversation",
+    "ChatMessage",
+    "ChatRun",
     "Contact",
     "DailyLog",
     "Followup",

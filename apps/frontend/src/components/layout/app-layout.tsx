@@ -1,6 +1,6 @@
 import { Plus, Search } from "lucide-react"
 import { useState } from "react"
-import { Outlet } from "react-router-dom"
+import { Outlet, useMatches } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
@@ -44,6 +44,10 @@ export function AppLayout() {
   // Phones use the slide-over sidebar. Tablets start collapsed to icons so content gets the room;
   // wide screens start expanded. The user can still toggle at any size.
   const [defaultOpen] = useState(() => window.matchMedia("(min-width: 1024px)").matches)
+  // Pages like the assistant fill the whole area below the top bar and scroll internally.
+  const fullBleed = useMatches().some(
+    (match) => (match.handle as { fullBleed?: boolean } | undefined)?.fullBleed === true,
+  )
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
@@ -53,7 +57,13 @@ export function AppLayout() {
             otherwise stretch the whole page instead of scrolling inside their own container. */}
         <SidebarInset className="min-w-0">
           <TopBar />
-          <main className="min-w-0 flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 md:p-8">
+          <main
+            className={
+              fullBleed
+                ? "min-w-0 flex-1"
+                : "min-w-0 flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 md:p-8"
+            }
+          >
             <Outlet />
           </main>
         </SidebarInset>

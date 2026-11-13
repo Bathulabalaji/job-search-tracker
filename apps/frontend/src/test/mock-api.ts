@@ -10,7 +10,13 @@ export interface RecordedCall {
   credentials: RequestCredentials | undefined
 }
 
-type Reply = { status?: number; body?: unknown; headers?: Record<string, string> }
+type Reply = {
+  status?: number
+  body?: unknown
+  headers?: Record<string, string>
+  /** A raw text body (for example a server-sent event stream), sent as-is. */
+  raw?: string
+}
 type Handler = Reply | ((call: RecordedCall) => Reply | Promise<Reply>)
 
 /**
@@ -35,6 +41,12 @@ export function mockApi(routes: Record<string, Handler>) {
     if (!handler) throw new Error(`Unmocked request: ${method} ${path}`)
     const reply = await (typeof handler === "function" ? handler(call) : handler)
     const status = reply.status ?? 200
+    if (reply.raw !== undefined) {
+      return new Response(reply.raw, {
+        status,
+        headers: { "Content-Type": "text/event-stream", ...reply.headers },
+      })
+    }
     return new Response(status === 204 ? null : JSON.stringify(reply.body ?? {}), {
       status,
       headers: { "Content-Type": "application/json", ...reply.headers },

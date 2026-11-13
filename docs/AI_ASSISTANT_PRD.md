@@ -408,3 +408,21 @@ Operator setup before R1: Groq API key, Google AI Studio key (new project), `SEC
 1. This PRD lives at `docs/AI_ASSISTANT_PRD.md`; update it in the same PR as any change to scope, quotas or the routing policy.
 2. You create the Groq and Google AI Studio keys (new Google Cloud project is fine) and add them to `apps/backend/.env` + Render; I never print them.
 3. Start Phase 0 on a branch `feat/ai-gateway`; each phase lands as its own PR with tests and the demo script in the PR description.
+
+## 13. Implementation notes
+
+### Phase 1 (shipped 2026-11-13)
+
+Built as specified, with these deliberate differences:
+- **Tool activity** is stored on the assistant message (`chat_messages.tool_calls`: name, ok,
+  summary) rather than as separate `role=tool` rows. Later prompts only ever needed one-line
+  markers, and raw tool output never needs to be replayed.
+- **The run's full tool log** lives in the LangGraph state, so a reply resumed after a capacity
+  failure still lists the lookups made before the failure.
+- **No SSE heartbeats yet**: a sync generator cannot emit while it waits on a provider call, and
+  calls are capped at 30 s. Revisit if a proxy drops idle streams.
+- **No per-tool timeout**: tools are local database reads; the run deadline (90 s) bounds them.
+- **Refusals** (quota, busy conversation) are shown inline above the composer, not as toasts.
+- **Gemini 3 latency**: chat calls use `reasoning_effort="low"`; `gpt-oss-20b` (guardrail,
+  summaries) uses low reasoning effort too. Measured live: Groq first token ≈ 2 s on a tool turn,
+  0.6 s on a decline; Gemini fallback ≈ 5 s.

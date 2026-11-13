@@ -100,6 +100,8 @@ class GroqProvider:
             request_timeout=timeout,
             max_retries=0,  # the gateway decides what to retry
             http_client=self.http_client,
+            # The small gpt-oss model does classification and summaries: quick, not deep.
+            reasoning_effort="low" if spec.name == "openai/gpt-oss-20b" else None,
         )
 
     def _structured_reply(self, output: Any) -> ChatReply:

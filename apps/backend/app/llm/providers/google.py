@@ -88,9 +88,12 @@ class GoogleProvider:
     def _model(
         self, spec: ModelSpec, *, timeout: float, max_tokens: int, temperature: float
     ) -> ChatGoogleGenerativeAI:
-        # Gemini 3.x uses fixed sampling defaults and warns when given a temperature.
-        sampling: dict[str, float] = (
-            {} if spec.name.startswith("gemini-3") else {"temperature": temperature}
+        # Gemini 3.x uses fixed sampling defaults (and warns when given a temperature), and
+        # thinks before answering unless told not to: low effort keeps chat responsive.
+        sampling: dict[str, Any] = (
+            {"reasoning_effort": "low"}
+            if spec.name.startswith("gemini-3")
+            else {"temperature": temperature}
         )
         return ChatGoogleGenerativeAI(
             model=spec.name,

@@ -4,6 +4,7 @@ import {
   CalendarCheck,
   ClipboardList,
   Kanban,
+  Sparkles,
   Users,
   type LucideIcon,
 } from "lucide-react"
@@ -17,6 +18,7 @@ export interface NavItem {
 export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/today", label: "Today", icon: CalendarCheck },
   { to: "/pipeline", label: "Pipeline", icon: Kanban },
+  { to: "/assistant", label: "Assistant", icon: Sparkles },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/daily-log", label: "Daily log", icon: ClipboardList },
   { to: "/prep", label: "Prep", icon: BookOpenCheck },

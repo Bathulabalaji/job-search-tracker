@@ -97,13 +97,17 @@ def test_the_claim_covers_every_per_user_table(
     }
     # every table with a user_id column (except the auth tables, which own it differently)
     assert tables <= in_db
-    # Auth tables are looked up by secret, and provider usage events are operational logs
-    # (they only reference the user for reporting): none of them is data to hand over.
+    # Auth tables are looked up by secret, provider usage events are operational logs, and
+    # chat rows only ever exist with an owner (the assistant postdates accounts): none of
+    # them can hold unclaimed legacy data.
     assert in_db - tables == {
         "auth_identities",
         "auth_tokens",
         "sessions",
         "provider_usage_events",
+        "chat_conversations",
+        "chat_messages",
+        "chat_runs",
     }
 
 

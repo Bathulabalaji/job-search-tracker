@@ -6,6 +6,7 @@ deterministic (hash-based) so similarity tests are repeatable.
 """
 
 import hashlib
+import json
 import math
 from collections import deque
 from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -107,13 +108,23 @@ class FakeProvider:
     @staticmethod
     def _chunks(message: AIMessage, usage: Usage) -> Iterator[AIMessageChunk]:
         text = str(message.content)
-        words = text.split(" ")
+        words = text.split(" ") if text else []
         for index, word in enumerate(words):
             piece = word if index == len(words) - 1 else word + " "
             yield AIMessageChunk(content=piece)
         yield AIMessageChunk(
             content="",
-            tool_calls=message.tool_calls,
+            # Real providers stream tool calls as chunks with JSON-string arguments.
+            tool_call_chunks=[
+                {
+                    "name": call["name"],
+                    "args": json.dumps(call["args"]),
+                    "id": call.get("id"),
+                    "index": index,
+                    "type": "tool_call_chunk",
+                }
+                for index, call in enumerate(message.tool_calls)
+            ],
             usage_metadata={
                 "input_tokens": usage.prompt_tokens,
                 "output_tokens": usage.completion_tokens,

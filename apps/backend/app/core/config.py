@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     llm_max_model_switches: int = 3  # per run, before giving up with a capacity error
     llm_circuit_failures: int = 3  # consecutive failures that open a model's circuit
     llm_circuit_cooldown_seconds: int = 60
+    chat_daily_messages: int = 60  # per user
+    chat_per_minute: int = 6  # per user
+    chat_max_conversations: int = 50  # per user
     embedding_model: str = "gemini-embedding-001"
     embedding_dims: int = 768
 

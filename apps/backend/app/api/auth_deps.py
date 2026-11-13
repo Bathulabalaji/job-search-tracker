@@ -3,18 +3,23 @@ from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, Depends, Request
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from sqlalchemy.orm import Session
 
+from app.assistant.checkpoints import postgres_checkpointer
+from app.assistant.runner import SessionScope
 from app.core.clock import Clock
 from app.core.config import Settings, get_settings
 from app.core.errors import AuthError
 from app.core.security import constant_time_equals, csrf_token_for
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.emails import build_email_sender
 from app.emails.mailer import AuthMailer
 from app.emails.sender import EmailSender
-from app.llm import build_llm_gateway
+from app.llm import build_llm_gateway, build_providers
+from app.llm.catalog import Provider
 from app.llm.gateway import LLMGateway
+from app.llm.providers.base import ChatProvider
 from app.models.auth import UserSession
 from app.models.user import User
 from app.services.auth import AuthService
@@ -167,13 +172,33 @@ def get_current_user(context: AuthContextDep) -> User:
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-# ---- AI gateway (overridden in tests with a fake provider) -------------------------------------
+# ---- AI assistant (each overridden in tests) ---------------------------------------------------
+
+
+def get_llm_providers(settings: SettingsDep) -> dict[Provider, ChatProvider]:
+    return build_providers(settings)
+
+
+LLMProvidersDep = Annotated[dict[Provider, ChatProvider], Depends(get_llm_providers)]
 
 
 def get_llm_gateway(
-    db: DbSession, clock: ClockDep, settings: SettingsDep, user: CurrentUser
+    db: DbSession,
+    clock: ClockDep,
+    settings: SettingsDep,
+    user: CurrentUser,
+    providers: LLMProvidersDep,
 ) -> LLMGateway:
-    return build_llm_gateway(settings, db, clock, user_id=user.id)
+    return build_llm_gateway(settings, db, clock, user_id=user.id, providers=providers)
 
 
 LLMGatewayDep = Annotated[LLMGateway, Depends(get_llm_gateway)]
+
+
+def get_session_scope() -> SessionScope:
+    """Sessions for work that outlives the request, such as a streamed answer."""
+    return SessionLocal
+
+
+def get_checkpointer(settings: SettingsDep) -> BaseCheckpointSaver[str]:
+    return postgres_checkpointer(settings.database_url)

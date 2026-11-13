@@ -29,4 +29,10 @@ export const queryKeys = {
     ["analytics", "weekly", weekOf ?? "current"] as const,
   analytics: ["analytics"] as const,
   prepItems: ["prep-items"] as const,
+  chat: {
+    all: ["chat"] as const,
+    config: ["chat", "config"] as const,
+    conversations: ["chat", "conversations"] as const,
+    conversation: (id: number) => ["chat", "conversation", id] as const,
+  },
 }
