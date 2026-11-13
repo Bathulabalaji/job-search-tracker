@@ -13,6 +13,8 @@ from app.db.session import get_db
 from app.emails import build_email_sender
 from app.emails.mailer import AuthMailer
 from app.emails.sender import EmailSender
+from app.llm import build_llm_gateway
+from app.llm.gateway import LLMGateway
 from app.models.auth import UserSession
 from app.models.user import User
 from app.services.auth import AuthService
@@ -163,3 +165,15 @@ def get_current_user(context: AuthContextDep) -> User:
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+# ---- AI gateway (overridden in tests with a fake provider) -------------------------------------
+
+
+def get_llm_gateway(
+    db: DbSession, clock: ClockDep, settings: SettingsDep, user: CurrentUser
+) -> LLMGateway:
+    return build_llm_gateway(settings, db, clock, user_id=user.id)
+
+
+LLMGatewayDep = Annotated[LLMGateway, Depends(get_llm_gateway)]

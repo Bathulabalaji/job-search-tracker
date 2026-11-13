@@ -43,7 +43,7 @@ Layout: `app/api` (routers), `app/services`, `app/repositories`, `app/models`, `
 | --- | --- | --- | --- |
 | Health endpoint | any | `curl http://localhost:8000/api/v1/health` | `{"status":"ok"}` |
 | OpenAPI docs | browser | <http://localhost:8000/docs> | Swagger UI listing health, opportunities, contacts, interactions, followups |
-| Tests | `apps/backend` | `uv run pytest` | 353 passed |
+| Tests | `apps/backend` | `uv run pytest` | 450 passed |
 | Types | `apps/backend` | `uv run mypy` | `Success: no issues found` |
 | Lint | `apps/backend` | `uv run ruff check .` | `All checks passed!` |
 | Alembic connects | `apps/backend` | `uv run alembic current` | `0004 (head)` after you run the migration below |
@@ -82,7 +82,7 @@ The script has four independent sections, and each runs only if that account has
 From `apps/backend`:
 
 ```bash
-uv run pytest            # 353 tests
+uv run pytest            # 450 tests
 uv run pytest tests/unit # pure rules only, no database needed
 ```
 
@@ -290,6 +290,47 @@ uv run python -m app.scripts.auth_admin issue-link verify|reset you@example.com 
 - Changing your email address is not supported (it is your sign-in name). Deleting your own account from the UI is not built; delete a user row to remove an account and its data.
 - Locking sign-in after repeated failures protects against guessing, but means someone could deliberately lock you out for 15 minutes.
 - Public holidays and CAPTCHA are not part of this release.
+
+## AI assistant
+
+The assistant is being built in phases (see [docs/AI_ASSISTANT_PRD.md](docs/AI_ASSISTANT_PRD.md)).
+Phase 0, the LLM gateway, is in place: one component that picks a model for each task across the
+free tiers of Groq and Google AI Studio, tracks every model's budget in Postgres, falls back
+when a model is rate-limited or down, and turns provider errors into messages that are safe to
+show. Nothing in the app calls a provider SDK directly.
+
+### Keys
+
+Create a key at <https://console.groq.com/keys> and/or <https://aistudio.google.com/apikey>
+and set `GROQ_API_KEY` / `GOOGLE_AI_API_KEY` in `apps/backend/.env` (and on Render). With
+neither key the assistant is disabled and its endpoints answer `503 assistant_disabled`; with
+one key only that provider's models are used. Embeddings need the Google key.
+
+### Budgets and routing
+
+Free-tier limits are per model and small. The defaults in `app/llm/catalog.py` are indicative:
+set `LLM_MODEL_LIMITS` to what your provider console shows for your account, for example
+`LLM_MODEL_LIMITS={"openai/gpt-oss-120b": {"rpm": 30, "rpd": 1000, "tpm": 12000}}`. The
+ledger (`provider_resource_state`) counts requests and tokens per minute and per day, trusts the
+rate-limit headers Groq sends, cools a model down after a 429, and opens a circuit after
+repeated failures. `LLM_POLICY_OVERRIDE` changes which models a task tries, in order
+(`app/llm/policy.py` lists the tasks). A run may switch models at most `LLM_MAX_MODEL_SWITCHES`
+times before it reports "at capacity" with a retry time.
+
+### Operating it
+
+From `apps/backend`:
+
+```bash
+uv run python -m app.scripts.llm_admin ping "Say hello"     # which model answered, latency, tokens
+uv run python -m app.scripts.llm_admin status                # budget, cooldowns and circuits per model
+uv run python -m app.scripts.llm_admin usage --since 7d      # calls, tokens and errors per model/task
+uv run python -m app.scripts.llm_admin reset-cooldowns       # after fixing a key or a provider outage
+```
+
+Every provider call is a row in `provider_usage_events` (tokens, latency, outcome; never the
+prompt). Logs carry the same fields under the `llm_call` event. Optional LangSmith tracing
+(`LANGSMITH_TRACING=true` plus a key) sends prompts to LangSmith, so it is off by default.
 
 ## Configuration
 

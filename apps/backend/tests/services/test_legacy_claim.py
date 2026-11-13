@@ -97,7 +97,14 @@ def test_the_claim_covers_every_per_user_table(
     }
     # every table with a user_id column (except the auth tables, which own it differently)
     assert tables <= in_db
-    assert in_db - tables == {"auth_identities", "auth_tokens", "sessions"}
+    # Auth tables are looked up by secret, and provider usage events are operational logs
+    # (they only reference the user for reporting): none of them is data to hand over.
+    assert in_db - tables == {
+        "auth_identities",
+        "auth_tokens",
+        "sessions",
+        "provider_usage_events",
+    }
 
 
 def test_all_owned_rows_are_found_by_a_claim(db: Session, clock: Clock, settings: Settings) -> None:

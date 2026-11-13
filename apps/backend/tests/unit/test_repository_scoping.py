@@ -8,7 +8,8 @@ import app.repositories as repositories_pkg
 from app.repositories.base import BaseRepository
 
 # Auth-internal repositories are looked up by secrets or ids, not by "whose data is this".
-UNSCOPED_ON_PURPOSE = {"app.repositories.user"}
+# The provider ledger is deployment-wide state (AI budgets), not user data.
+UNSCOPED_ON_PURPOSE = {"app.repositories.user", "app.repositories.provider_ledger"}
 
 
 def _repository_classes() -> list[type]:

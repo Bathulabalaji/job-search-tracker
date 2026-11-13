@@ -69,6 +69,22 @@ class Settings(BaseSettings):
     # How many reverse proxies sit in front of the API (0 = trust nothing, use the socket IP).
     trusted_proxy_count: int = 0
 
+    # ---- AI assistant ---------------------------------------------------------------------
+    # Free-tier LLM providers. With neither key set the assistant is disabled (endpoints 503).
+    groq_api_key: str = ""
+    google_ai_api_key: str = ""
+    # Per-model budgets as JSON (see app/llm/catalog.py). Match what your provider console shows.
+    llm_model_limits: str = ""
+    # Task -> ordered model list as JSON, replacing the built-in routing (app/llm/policy.py).
+    llm_policy_override: str = ""
+    llm_request_timeout_seconds: float = 30.0  # one provider call
+    llm_run_timeout_seconds: float = 90.0  # one gateway call including fallbacks
+    llm_max_model_switches: int = 3  # per run, before giving up with a capacity error
+    llm_circuit_failures: int = 3  # consecutive failures that open a model's circuit
+    llm_circuit_cooldown_seconds: int = 60
+    embedding_model: str = "gemini-embedding-001"
+    embedding_dims: int = 768
+
     @property
     def frontend_is_local(self) -> bool:
         return (urlparse(self.frontend_url).hostname or "") in LOCAL_HOSTS
@@ -84,6 +100,10 @@ class Settings(BaseSettings):
         """Every Google client ID an ID token may have been issued to (web first)."""
         extras = [c.strip() for c in self.google_extra_client_ids.split(",")]
         return [c for c in [self.google_client_id.strip(), *extras] if c]
+
+    @property
+    def llm_enabled(self) -> bool:
+        return bool(self.groq_api_key or self.google_ai_api_key)
 
     @property
     def allowed_origins(self) -> set[str]:
@@ -111,6 +131,17 @@ class Settings(BaseSettings):
             raise ValueError("AUTO_VERIFY_EMAIL is only allowed when FRONTEND_URL is localhost")
         if not self.frontend_is_local and not self.frontend_url.startswith("https://"):
             raise ValueError("FRONTEND_URL must use https:// outside local development")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_assistant(self) -> "Settings":
+        # Fail at startup, not on the first chat message, when the JSON overrides are broken.
+        from app.llm.catalog import load_catalog
+        from app.llm.policy import load_policy
+
+        load_policy(self.llm_policy_override, load_catalog(self.llm_model_limits))
+        if self.embedding_dims <= 0:
+            raise ValueError("EMBEDDING_DIMS must be positive")
         return self
 
 

@@ -9,6 +9,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.errors import AuthError, ConflictError, NotFoundError, RateLimitedError
 from app.core.logging import configure_logging
+from app.llm.errors import LLMError
 
 logger = logging.getLogger("app")
 
@@ -55,6 +56,28 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.message, "code": exc.code},
+            headers=headers,
+        )
+
+    @app.exception_handler(LLMError)
+    def _llm_error(request: Request, exc: LLMError) -> JSONResponse:
+        # Provider details stay in the log; the client gets a stable code and a plain message.
+        logger.warning(
+            "assistant error",
+            extra={
+                "code": exc.code,
+                "provider": exc.provider,
+                "model": exc.model,
+                "detail": exc.detail[:300],
+                "path": request.url.path,
+            },
+        )
+        headers: dict[str, str] = {}
+        if exc.retry_after is not None:
+            headers["Retry-After"] = str(exc.retry_after)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.user_message, "code": exc.code},
             headers=headers,
         )
 

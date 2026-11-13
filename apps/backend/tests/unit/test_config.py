@@ -83,3 +83,27 @@ def test_google_audiences_lists_web_then_extra_clients() -> None:
     )
     assert s.google_audiences == ["web", "ios", "android"]
     assert Settings(_env_file=None).google_audiences == []
+
+
+class TestAssistant:
+    def test_disabled_without_any_provider_key(self) -> None:
+        assert make().llm_enabled is False
+        assert make(groq_api_key="gsk_x").llm_enabled is True
+        assert make(google_ai_api_key="AIza").llm_enabled is True
+
+    def test_broken_model_limits_stop_the_app_from_starting(self) -> None:
+        with pytest.raises(ValidationError, match="not valid JSON"):
+            make(llm_model_limits="{oops")
+        with pytest.raises(ValidationError, match="needs a 'provider'"):
+            make(llm_model_limits='{"new-model": {"rpm": 1}}')
+
+    def test_a_policy_naming_an_unknown_model_is_refused(self) -> None:
+        with pytest.raises(ValidationError, match="unknown model"):
+            make(llm_policy_override='{"guardrail": ["nope"]}')
+
+    def test_valid_overrides_are_accepted(self) -> None:
+        settings = make(
+            llm_model_limits='{"openai/gpt-oss-120b": {"rpm": 3}}',
+            llm_policy_override='{"guardrail": ["gemini-3.5-flash-lite"]}',
+        )
+        assert settings.llm_max_model_switches == 3
