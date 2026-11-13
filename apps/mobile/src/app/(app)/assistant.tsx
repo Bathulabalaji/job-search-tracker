@@ -18,7 +18,10 @@ import {
   useCreateConversation,
   useDeleteConversation,
   type ChatMessage,
+  type PendingAction,
 } from "@/api/chat";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Icon } from "@/components/ui/icon";
 import { Sheet } from "@/components/ui/sheet";
@@ -46,6 +49,12 @@ const TOOL_LABELS: Record<string, string> = {
   list_contacts: "Contacts",
   list_prep_items: "Prep topics",
   list_resumes: "Resumes",
+  move_opportunity: "Move stage",
+  add_followup: "Add follow-up",
+  mark_followup: "Update follow-up",
+  log_interaction: "Log interaction",
+  set_next_action: "Set next action",
+  create_opportunity: "Add opportunity",
 };
 
 type Row =
@@ -59,7 +68,8 @@ type Row =
       streaming?: boolean;
       error?: TurnError | null;
       onRetry?: () => void;
-    };
+    }
+  | { key: string; kind: "card"; action: PendingAction };
 
 export default function AssistantScreen() {
   const config = useChatConfig();
@@ -164,12 +174,14 @@ function ChatPanel({
   const insets = useSafeAreaInsets();
   const detail = useConversation(conversationId);
   const create = useCreateConversation();
-  const { live, send, resume, stop, busy } = useChatStream();
+  const { live, send, resume, decide, stop, busy } = useChatStream();
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const list = useRef<FlatList<Row>>(null);
 
   const lastRun = detail.data?.last_run ?? null;
+  const pending = detail.data?.pending_action ?? null;
+  const cardUp = pending !== null && pending.status === "pending" && !live;
   const persisted = (detail.data?.messages ?? []).filter(
     (m) =>
       !(
@@ -205,6 +217,8 @@ function ChatPanel({
               : undefined,
         },
   );
+  if (cardUp)
+    rows.push({ key: `card-${pending.id}`, kind: "card", action: pending });
   if (live?.userText)
     rows.push({ key: "live-user", kind: "user", text: live.userText });
   if (live) {
@@ -222,6 +236,14 @@ function ChatPanel({
   useEffect(() => {
     list.current?.scrollToEnd({ animated: true });
   }, [rows.length, live?.text, live?.tools.length]);
+
+  const answerCard = async (decision: "confirm" | "reject") => {
+    if (conversationId === null || !pending) return;
+    haptics.tap();
+    setNotice(null);
+    const error = await decide(conversationId, pending.id, decision);
+    if (error) setNotice(errorText(error));
+  };
 
   const submit = async (text: string) => {
     const content = text.trim();
@@ -331,6 +353,13 @@ function ChatPanel({
           renderItem={({ item }) =>
             item.kind === "user" ? (
               <UserBubble text={item.text} />
+            ) : item.kind === "card" ? (
+              <ConfirmationCard
+                action={item.action}
+                busy={busy}
+                onConfirm={() => void answerCard("confirm")}
+                onReject={() => void answerCard("reject")}
+              />
             ) : (
               <AssistantBubble row={item} />
             )
@@ -368,7 +397,12 @@ function ChatPanel({
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder="Ask about your job search…"
+            placeholder={
+              cardUp
+                ? "Confirm or decline the change above first…"
+                : "Ask about your job search…"
+            }
+            editable={!cardUp}
             placeholderTextColor={colors.muted}
             multiline
             maxLength={maxChars}
@@ -408,6 +442,75 @@ function ChatPanel({
         </View>
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+function ConfirmationCard({
+  action,
+  busy,
+  onConfirm,
+  onReject,
+}: {
+  action: PendingAction;
+  busy: boolean;
+  onConfirm: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <Card
+      accessibilityLabel="Confirm this change"
+      style={{ gap: 10, marginLeft: 38 }}
+    >
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
+        <Icon name="clipboard-outline" size={18} color="primary" />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "600" }}>{action.title}</Text>
+          <Text variant="small" tone="muted">
+            {action.summary}
+          </Text>
+        </View>
+      </View>
+      {action.warning ? (
+        <Text variant="small" tone="warning">
+          {action.warning}
+        </Text>
+      ) : null}
+      <View style={{ gap: 4 }}>
+        {action.fields
+          .filter(
+            (f) => f.value !== null && f.value !== undefined && f.value !== "",
+          )
+          .map((f) => (
+            <View key={f.name} style={{ flexDirection: "row", gap: 8 }}>
+              <Text variant="small" tone="muted" style={{ minWidth: 88 }}>
+                {f.label}
+              </Text>
+              <Text variant="small" style={{ flex: 1 }}>
+                {String(f.value)}
+              </Text>
+            </View>
+          ))}
+      </View>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <Button
+          label="Confirm"
+          icon="checkmark"
+          onPress={onConfirm}
+          disabled={busy}
+          size="sm"
+        />
+        <Button
+          label="Decline"
+          variant="secondary"
+          onPress={onReject}
+          disabled={busy}
+          size="sm"
+        />
+      </View>
+      <Text variant="caption" tone="muted">
+        Nothing changes until you confirm.
+      </Text>
+    </Card>
   );
 }
 

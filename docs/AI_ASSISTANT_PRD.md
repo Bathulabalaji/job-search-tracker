@@ -419,10 +419,28 @@ Built as specified, with these deliberate differences:
   markers, and raw tool output never needs to be replayed.
 - **The run's full tool log** lives in the LangGraph state, so a reply resumed after a capacity
   failure still lists the lookups made before the failure.
-- **No SSE heartbeats yet**: a sync generator cannot emit while it waits on a provider call, and
-  calls are capped at 30 s. Revisit if a proxy drops idle streams.
-- **No per-tool timeout**: tools are local database reads; the run deadline (90 s) bounds them.
+- **SSE heartbeats** (added 2026-11-14): the graph runs on a worker thread and the response
+  sends a `: ping` comment every `CHAT_HEARTBEAT_SECONDS` (10) while nothing else is flowing.
+- **Per-lookup timeouts** (added 2026-11-14): each read tool runs under a Postgres
+  `SET LOCAL statement_timeout` of `CHAT_TOOL_TIMEOUT_SECONDS` (8); a cancelled query becomes a
+  "timed out" tool result and the run carries on.
 - **Refusals** (quota, busy conversation) are shown inline above the composer, not as toasts.
 - **Gemini 3 latency**: chat calls use `reasoning_effort="low"`; `gpt-oss-20b` (guardrail,
   summaries) uses low reasoning effort too. Measured live: Groq first token ≈ 2 s on a tool turn,
   0.6 s on a decline; Gemini fallback ≈ 5 s.
+
+### Phase 1b (shipped 2026-11-14)
+
+Built as specified: `chat_pending_actions` (migration 0007), six write tools with resolved-name
+previews, LangGraph `interrupt()` in the tools node, `POST …/actions/{id}` with edits, 15-minute
+expiry, Stop declines an open card, sequential cards for several changes in one turn, and all
+writes through the existing services (the move auto-rule still creates its follow-up).
+Differences from the plan:
+- The resume value carried in the checkpoint is only the action id; the decision and any edits
+  live in the ledger row, so client-supplied data never enters graph state.
+- Idempotency comes from the ledger (unique `run_id, tool_call_id`): the tools node re-runs after
+  every decision, finds the row, and never proposes or executes twice. `interrupt()` is still
+  called for already-decided actions to keep LangGraph's resume indexes aligned.
+- Mobile cards show the proposed values and Confirm/Decline; editing fields is web-only for now.
+- The "suggested while reading external content" warning badge waits for Phase 3, when
+  untrusted job content first enters a prompt.

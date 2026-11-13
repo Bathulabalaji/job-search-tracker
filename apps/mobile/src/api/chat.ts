@@ -30,16 +30,43 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   tool_calls: ChatToolCall[] | null;
-  status: "complete" | "failed" | "cancelled";
+  status: "complete" | "awaiting" | "failed" | "cancelled";
   error_code: string | null;
   model: string | null;
   run_id: string | null;
   created_at: string;
 }
 
+export interface ActionField {
+  name: string;
+  label: string;
+  value: unknown;
+  editable: boolean;
+  type: "text" | "date" | "datetime" | "select" | "number";
+  options: string[] | null;
+}
+
+/** A change the assistant proposed. Nothing happens until it is confirmed. */
+export interface PendingAction {
+  id: string;
+  run_id: string;
+  tool: string;
+  title: string;
+  summary: string;
+  fields: ActionField[];
+  status:
+    "pending" | "confirmed" | "rejected" | "expired" | "executed" | "failed";
+  expires_at: string;
+  created_at: string | null;
+  result_summary: string | null;
+  error: string | null;
+  warning: string | null;
+}
+
 export interface ChatRun {
   id: string;
-  status: "running" | "completed" | "failed" | "cancelled";
+  status:
+    "running" | "awaiting_confirmation" | "completed" | "failed" | "cancelled";
   error_code: string | null;
   model_switches: number;
   started_at: string;
@@ -51,6 +78,7 @@ export interface ConversationDetail {
   conversation: ChatConversation;
   messages: ChatMessage[];
   last_run: ChatRun | null;
+  pending_action: PendingAction | null;
 }
 
 export function useChatConfig() {

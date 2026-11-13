@@ -2,6 +2,7 @@ import json
 from collections.abc import Iterator
 from contextlib import nullcontext
 from dataclasses import dataclass
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -59,8 +60,8 @@ def chat(db: Session, chat_settings: Settings) -> Iterator[ChatHarness]:
         app.dependency_overrides.clear()
 
 
-def parse_sse(body: str) -> list[tuple[str, dict[str, object]]]:
-    events: list[tuple[str, dict[str, object]]] = []
+def parse_sse(body: str) -> list[tuple[str, dict[str, Any]]]:
+    events: list[tuple[str, dict[str, Any]]] = []
     for block in body.strip().split("\n\n"):
         name, data = "", ""
         for line in block.splitlines():

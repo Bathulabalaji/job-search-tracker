@@ -2,7 +2,7 @@
 
 from datetime import date
 
-PROMPT_VERSION = "2026-11-13.1"
+PROMPT_VERSION = "2026-11-14.1"
 
 DECLINE_MESSAGE = (
     "I can only help with your job search in this app: your pipeline, follow-ups, "
@@ -11,7 +11,26 @@ DECLINE_MESSAGE = (
 )
 
 
-def system_prompt(*, today: date, first_name: str, summary: str | None) -> str:
+def system_prompt(
+    *, today: date, first_name: str, summary: str | None, writes_enabled: bool = True
+) -> str:
+    changes = (
+        [
+            "- You can also make changes with the action tools: move a stage, add or complete a "
+            "follow-up, log a call or email, set a next action, add an opportunity. Every action "
+            "is shown to the user as a card they confirm or decline before anything happens, so "
+            "when the request is clear, call the tool right away instead of asking permission "
+            "in words. The tool result says whether it was done or declined: never say "
+            "something changed unless it says done, and if it was declined, acknowledge in one "
+            "line and move on.",
+        ]
+        if writes_enabled
+        else [
+            "- You cannot change anything yet: if asked to update, move, add or delete "
+            "something, explain that the user can do it in the app (Pipeline, Today or the "
+            "opportunity page).",
+        ]
+    )
     parts = [
         f"You are the assistant inside Career Command Center, a job-search tracker. "
         f"You are talking to {first_name}. Today is {today:%A %d %B %Y}.",
@@ -22,8 +41,7 @@ def system_prompt(*, today: date, first_name: str, summary: str | None) -> str:
         "analytics. Always call a tool for facts; never guess numbers, names, dates or ids.",
         "- If a tool returns nothing, say so plainly. If a question needs data no tool has, "
         "say what you can't see.",
-        "- You cannot change anything yet: if asked to update, move, add or delete something, "
-        "explain that the user can do it in the app (Pipeline, Today or the opportunity page).",
+        *changes,
         "- Politely decline anything unrelated to the user's job search or this app.",
         "",
         "How you answer:",

@@ -41,6 +41,38 @@ class MessageRead(ORMModel):
     created_at: datetime
 
 
+class ActionField(BaseModel):
+    name: str
+    label: str
+    value: Any
+    editable: bool
+    type: Literal["text", "date", "datetime", "select", "number"]
+    options: list[str] | None = None
+
+
+class ActionRead(BaseModel):
+    id: uuid.UUID
+    run_id: uuid.UUID
+    tool: str
+    title: str
+    summary: str
+    fields: list[ActionField]
+    # pending | confirmed | rejected | expired | executed | failed
+    status: str
+    expires_at: datetime
+    created_at: datetime | None
+    result_summary: str | None
+    error: str | None
+    warning: str | None
+
+
+class ActionDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["confirm", "reject"]
+    # Values for fields the card marks editable, keyed by field name.
+    edits: dict[str, Any] | None = None
+
+
 class RunRead(ORMModel):
     id: uuid.UUID
     status: str
@@ -56,6 +88,8 @@ class ConversationDetail(BaseModel):
     messages: list[MessageRead]
     # The latest run, so a client can offer "Retry" after a capacity failure on reload.
     last_run: RunRead | None
+    # The change waiting for a decision, if the latest reply proposed one.
+    pending_action: ActionRead | None = None
 
 
 class SendMessageRequest(BaseModel):

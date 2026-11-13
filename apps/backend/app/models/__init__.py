@@ -1,5 +1,6 @@
 from app.models.auth import AuthIdentity, AuthToken, RateLimitEvent, UserSession
 from app.models.chat import ChatConversation, ChatMessage, ChatRun
+from app.models.chat_action import ChatPendingAction
 from app.models.contact import Contact
 from app.models.daily_log import DailyLog
 from app.models.followup import Followup
@@ -16,6 +17,7 @@ __all__ = [
     "AuthToken",
     "ChatConversation",
     "ChatMessage",
+    "ChatPendingAction",
     "ChatRun",
     "Contact",
     "DailyLog",

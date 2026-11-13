@@ -108,6 +108,7 @@ def test_the_claim_covers_every_per_user_table(
         "chat_conversations",
         "chat_messages",
         "chat_runs",
+        "chat_pending_actions",
     }
 
 

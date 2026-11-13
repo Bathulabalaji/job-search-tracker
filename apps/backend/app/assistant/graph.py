@@ -5,8 +5,15 @@ results). Earlier turns come from `Context`. Because LangGraph checkpoints after
 a run that fails on capacity can be resumed: the failed node runs again, completed tool calls
 are not repeated.
 
+Changes go through `interrupt()`: the tools node records a pending action, pauses the graph
+and the user sees a card. A decision resumes the graph; the node runs again from the top,
+finds the action in the ledger and executes (or skips) it. Everything before the interrupt in
+that node must therefore be safe to repeat: reads are, and actions are looked up before they
+are proposed.
+
 Events for the client are written with `get_stream_writer()` and surface as
-`stream_mode="custom"` items: token, tool_start, tool_end, model_switched, notice.
+`stream_mode="custom"` items: token, tool_start, tool_end, confirmation_required,
+model_switched, notice.
 """
 
 import logging
@@ -28,16 +35,20 @@ from langchain_core.messages import (
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
+from langgraph.types import interrupt
 from pydantic import BaseModel, ValidationError
 
+from app.assistant.actions import ActionStore, action_payload
 from app.assistant.context import Context
 from app.assistant.prompts import DECLINE_MESSAGE, GUARDRAIL_PROMPT
-from app.assistant.tools import AssistantTool, compact, toolset_for
+from app.assistant.tools import AssistantTool, ToolTimeout, compact, toolset_for
+from app.assistant.write_tools import WriteTool
 from app.core.errors import DomainError, NotFoundError
 from app.llm.errors import LLMError
 from app.llm.gateway import LLMGateway, RunBudget
 from app.llm.policy import Task
 from app.llm.providers.base import message_content_text
+from app.models.chat_action import ChatPendingAction
 
 logger = logging.getLogger("app.assistant")
 
@@ -56,6 +67,10 @@ Intent = Literal[
     "out_of_scope",
 ]
 SMALLTALK = {"hi", "hello", "hey", "thanks", "thank you", "ok", "okay", "cool", "great", "bye"}
+DECLINED_NOTE = (
+    '{"declined":true,"note":"The user declined this change. Do not retry it; '
+    'acknowledge in one line."}'
+)
 
 
 class GuardrailVerdict(BaseModel):
@@ -82,6 +97,8 @@ class ChatState(TypedDict, total=False):
 class AgentDeps:
     gateway: LLMGateway
     tools: dict[str, AssistantTool]
+    write_tools: dict[str, WriteTool]
+    actions: ActionStore
     system_prompt: str
     context: Context
     run_id: str
@@ -140,7 +157,15 @@ def build_graph(deps: AgentDeps) -> StateGraph[ChatState]:
         write = get_stream_writer()
         made = state.get("tool_calls_made", 0)
         names = toolset_for(state.get("intent")) if made < MAX_TOOL_CALLS else ()
-        tools = [deps.tools[n].as_langchain() for n in names if n in deps.tools]
+        tools = [
+            (
+                deps.tools[n].as_langchain()
+                if n in deps.tools
+                else deps.write_tools[n].as_langchain()
+            )
+            for n in names
+            if n in deps.tools or n in deps.write_tools
+        ]
         prompt: list[BaseMessage] = [SystemMessage(content=deps.system_prompt)]
         prompt += deps.context.history
         prompt += state["messages"]
@@ -185,12 +210,18 @@ def build_graph(deps: AgentDeps) -> StateGraph[ChatState]:
             call_id = call.get("id") or f"call_{made}"
             name = call["name"]
             args = call.get("args") or {}
-            write({"event": "tool_start", "id": call_id, "name": name})
             made += 1
-            ok, summary, content = _run_tool(deps.tools.get(name), name, args, made)
-            write({"event": "tool_end", "id": call_id, "name": name, "ok": ok, "summary": summary})
+            if name in deps.write_tools:
+                entry, content = _handle_write(deps, call_id, name, args, write)
+            else:
+                write({"event": "tool_start", "id": call_id, "name": name})
+                ok, summary, content = _run_tool(deps.tools.get(name), name, args, made)
+                write(
+                    {"event": "tool_end", "id": call_id, "name": name, "ok": ok, "summary": summary}
+                )
+                entry = {"name": name, "args": args, "ok": ok, "summary": summary}
             outputs.append(ToolMessage(content=content, tool_call_id=call_id, name=name))
-            log.append({"name": name, "args": args, "ok": ok, "summary": summary})
+            log.append(entry)
         return {"messages": outputs, "tool_calls_made": made, "tool_log": log}
 
     def after_guardrail(state: ChatState) -> str:
@@ -234,8 +265,110 @@ def _run_tool(
         return False, "invalid arguments", compact({"error": f"Invalid arguments: {problems}"})
     except NotFoundError as exc:
         return False, "not found", compact({"error": str(exc)})
+    except ToolTimeout:
+        return (
+            False,
+            "timed out",
+            ('{"error":"That lookup took too long. Try a narrower question or fewer rows."}'),
+        )
     except DomainError as exc:
         return False, "failed", compact({"error": str(exc)})
     except Exception:
         logger.exception("assistant_tool_failed", extra={"tool": name})
         return False, "failed", '{"error":"That lookup failed. Tell the user it did not work."}'
+
+
+def _handle_write(
+    deps: AgentDeps,
+    call_id: str,
+    name: str,
+    args: dict[str, Any],
+    write: Callable[[dict[str, Any]], None],
+) -> tuple[dict[str, Any], str]:
+    """Propose a change, pause for the decision, then carry it out. Safe to re-run."""
+    tool = deps.write_tools[name]
+    action = deps.actions.get(call_id)
+    if action is None:
+        write({"event": "tool_start", "id": call_id, "name": name})
+        try:
+            parsed = tool.args.model_validate(args)
+            preview = tool.preview(parsed)
+        except ValidationError as exc:
+            problems = "; ".join(e["msg"] for e in exc.errors()[:3])
+            return _write_failed(
+                write,
+                call_id,
+                name,
+                args,
+                "invalid arguments",
+                compact({"error": f"Invalid arguments: {problems}"}),
+            )
+        except NotFoundError as exc:
+            return _write_failed(
+                write, call_id, name, args, "not found", compact({"error": str(exc)})
+            )
+        except DomainError as exc:
+            return _write_failed(
+                write, call_id, name, args, "not possible", compact({"error": str(exc)})
+            )
+        action = deps.actions.create(call_id, name, parsed.model_dump(mode="json"), preview)
+        write({"event": "confirmation_required", **action_payload(action)})
+    # Pauses here until the user decides. On resume the value is the action id; the decision
+    # itself is read from the ledger so the checkpoint never carries client-supplied data.
+    interrupt({"action_id": str(action.id)})
+    refreshed = deps.actions.get(call_id)
+    assert refreshed is not None
+    action = refreshed
+    if action.status == "confirmed":
+        try:
+            result = tool.execute(tool.args.model_validate(action.args))
+            deps.actions.executed(action, result)
+        except (ValidationError, DomainError) as exc:
+            deps.actions.failed(action, str(exc))
+        except Exception:
+            logger.exception("assistant_action_failed", extra={"tool": name})
+            deps.actions.failed(action, "The change failed unexpectedly.")
+    return _write_outcome(write, call_id, name, action)
+
+
+def _write_failed(
+    write: Callable[[dict[str, Any]], None],
+    call_id: str,
+    name: str,
+    args: dict[str, Any],
+    summary: str,
+    content: str,
+) -> tuple[dict[str, Any], str]:
+    write({"event": "tool_end", "id": call_id, "name": name, "ok": False, "summary": summary})
+    return {"name": name, "args": args, "ok": False, "summary": summary}, content
+
+
+def _write_outcome(
+    write: Callable[[dict[str, Any]], None], call_id: str, name: str, action: ChatPendingAction
+) -> tuple[dict[str, Any], str]:
+    result = action.result or {}
+    if action.status == "executed":
+        ok, summary = True, str(result.get("summary", "done"))
+        content = compact({"done": True, "summary": summary, **(result.get("data") or {})})
+        changed = list(result.get("changed") or [])
+    elif action.status == "failed":
+        ok, summary, changed = False, "failed", []
+        content = compact({"error": action.error or "The change failed."})
+    elif action.status == "expired":
+        ok, summary, changed = False, "expired", []
+        content = '{"declined":true,"note":"The change expired before it was confirmed."}'
+    else:  # rejected (or pending after a cancel)
+        ok, summary, changed = False, "declined", []
+        content = DECLINED_NOTE
+    write(
+        {
+            "event": "tool_end",
+            "id": call_id,
+            "name": name,
+            "ok": ok,
+            "summary": summary,
+            "changed": changed,
+            "action_id": str(action.id),
+        }
+    )
+    return {"name": name, "args": action.args, "ok": ok, "summary": summary}, content

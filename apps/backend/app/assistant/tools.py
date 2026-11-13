@@ -13,6 +13,8 @@ from typing import Any
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.clock import Clock
@@ -29,6 +31,44 @@ from app.services.resume import ResumeService
 
 MAX_RESULT_CHARS = 1_400
 MAX_TEXT = 300
+QUERY_CANCELLED = "57014"  # Postgres: statement_timeout hit
+
+
+class ToolTimeout(Exception):
+    """A lookup took longer than the database was allowed to spend on it."""
+
+
+def with_statement_timeout(
+    session: Session, seconds: float, fn: Callable[[BaseModel], dict[str, Any]]
+) -> Callable[[BaseModel], dict[str, Any]]:
+    """Bound a tool's database time with Postgres' own `statement_timeout`.
+
+    Set per transaction (`SET LOCAL`), so it never leaks into other requests; a cancelled
+    query aborts the transaction, which is rolled back so the run can carry on.
+    """
+    ms = max(1, int(seconds * 1000))
+
+    def run(args: BaseModel) -> dict[str, Any]:
+        session.execute(text(f"SET LOCAL statement_timeout = {ms}"))
+        db_failed = False
+        try:
+            return fn(args)
+        except OperationalError as exc:
+            db_failed = True
+            session.rollback()
+            if getattr(exc.orig, "sqlstate", None) == QUERY_CANCELLED or (
+                "statement timeout" in str(exc).lower()
+            ):
+                raise ToolTimeout(f"lookup exceeded {seconds:g}s") from exc
+            raise
+        finally:
+            if not db_failed:
+                try:
+                    session.execute(text("SET LOCAL statement_timeout = DEFAULT"))
+                except Exception:  # the transaction is aborted by another DB error
+                    session.rollback()
+
+    return run
 
 
 def _clip(text: str | None, limit: int = MAX_TEXT) -> str | None:
@@ -126,7 +166,12 @@ def _rows(n: int, noun: str) -> str:
 
 
 def build_read_tools(
-    session: Session, clock: Clock, settings: Settings, user_id: int
+    session: Session,
+    clock: Clock,
+    settings: Settings,
+    user_id: int,
+    *,
+    timeout_seconds: float | None = None,
 ) -> dict[str, AssistantTool]:
     opportunities = OpportunityService(session, clock, settings, user_id)
     dashboard = DashboardService(session, clock, user_id)
@@ -414,15 +459,35 @@ def build_read_tools(
             count("items", "resume"),
         ),
     ]
+    if timeout_seconds:
+        tools = [
+            AssistantTool(
+                t.name,
+                t.description,
+                t.args,
+                with_statement_timeout(session, timeout_seconds, t.run),
+                t.summarize,
+            )
+            for t in tools
+        ]
     return {t.name: t for t in tools}
 
 
 # Which tools each guardrail intent gets. Fewer schemas = fewer prompt tokens.
 CORE = ("get_today", "get_pipeline_summary", "list_opportunities", "get_opportunity")
+WRITE = (
+    "move_opportunity",
+    "add_followup",
+    "mark_followup",
+    "log_interaction",
+    "set_next_action",
+    "create_opportunity",
+)
 TOOLSETS: dict[str, tuple[str, ...]] = {
-    "today": CORE + ("list_followups",),
-    "pipeline": CORE + ("list_followups",),
-    "followups": CORE + ("list_followups",),
+    "today": CORE + ("list_followups",) + WRITE,
+    "pipeline": CORE + ("list_followups",) + WRITE,
+    "followups": CORE + ("list_followups",) + WRITE,
+    "write": CORE + ("list_followups", "list_contacts") + WRITE,
     "analytics": ("get_weekly_analytics", "get_pipeline_summary", "list_opportunities"),
     "contacts": ("list_contacts", "list_opportunities", "get_opportunity"),
     "prep": ("list_prep_items", "list_opportunities", "get_opportunity"),

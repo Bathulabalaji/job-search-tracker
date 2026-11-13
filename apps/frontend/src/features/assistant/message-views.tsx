@@ -24,6 +24,12 @@ const TOOL_LABELS: Record<string, string> = {
   list_contacts: "Contacts",
   list_prep_items: "Prep topics",
   list_resumes: "Resumes",
+  move_opportunity: "Move stage",
+  add_followup: "Add follow-up",
+  mark_followup: "Update follow-up",
+  log_interaction: "Log interaction",
+  set_next_action: "Set next action",
+  create_opportunity: "Add opportunity",
 }
 
 export function ToolChips({

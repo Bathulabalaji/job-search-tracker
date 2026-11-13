@@ -85,6 +85,10 @@ class Settings(BaseSettings):
     chat_daily_messages: int = 60  # per user
     chat_per_minute: int = 6  # per user
     chat_max_conversations: int = 50  # per user
+    chat_writes_enabled: bool = True  # the assistant may propose changes (always confirmed)
+    chat_action_ttl_minutes: int = 15  # how long a proposed change waits for a decision
+    chat_heartbeat_seconds: float = 10.0  # SSE keep-alive while a model call is in flight
+    chat_tool_timeout_seconds: float = 8.0  # database time one lookup may take
     embedding_model: str = "gemini-embedding-001"
     embedding_dims: int = 768
 

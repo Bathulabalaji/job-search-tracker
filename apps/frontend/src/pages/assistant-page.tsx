@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { ConfirmationCard } from "@/features/assistant/confirmation-card"
 import { AssistantBubble, UserBubble } from "@/features/assistant/message-views"
 import { errorText, useChatStream } from "@/features/assistant/use-chat-stream"
 import { cn } from "@/lib/utils"
@@ -180,7 +181,7 @@ function ChatPanel({
 }: ChatPanelProps) {
   const detail = useConversation(conversationId)
   const create = useCreateConversation()
-  const { live, send, resume, stop, busy } = useChatStream()
+  const { live, send, resume, decide, stop, busy } = useChatStream()
   const [draft, setDraft] = useState("")
   // Why the last message could not be sent (quota, busy...). Shown above the composer.
   const [notice, setNotice] = useState<string | null>(null)
@@ -190,6 +191,8 @@ function ChatPanel({
     (m) => !(live?.resumingRunId && m.role === "assistant" && m.run_id === live.resumingRunId),
   )
   const lastRun = detail.data?.last_run ?? null
+  const pending = detail.data?.pending_action ?? null
+  const cardUp = pending !== null && pending.status === "pending" && !live
 
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ block: "end" })
@@ -222,6 +225,16 @@ function ChatPanel({
     if (conversationId === null) return
     setNotice(null)
     const error = await resume(conversationId, runId)
+    if (error) setNotice(errorText(error))
+  }
+
+  const answerCard = async (
+    decision: "confirm" | "reject",
+    edits: Record<string, unknown> = {},
+  ) => {
+    if (conversationId === null || !pending) return
+    setNotice(null)
+    const error = await decide(conversationId, pending.id, decision, edits)
     if (error) setNotice(errorText(error))
   }
 
@@ -317,6 +330,16 @@ function ChatPanel({
             ),
           )}
 
+          {cardUp ? (
+            <ConfirmationCard
+              key={pending.id}
+              action={pending}
+              busy={busy}
+              onConfirm={(edits) => void answerCard("confirm", edits)}
+              onReject={() => void answerCard("reject")}
+            />
+          ) : null}
+
           {live?.userText ? <UserBubble text={live.userText} /> : null}
           {live ? (
             <AssistantBubble
@@ -345,7 +368,11 @@ function ChatPanel({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Ask about your pipeline, follow-ups, interviews…"
+            placeholder={
+              cardUp
+                ? "Confirm or decline the change above first…"
+                : "Ask about your pipeline, follow-ups, interviews…"
+            }
             aria-label="Message"
             rows={1}
             maxLength={maxChars}
@@ -356,7 +383,7 @@ function ChatPanel({
               <Square />
             </Button>
           ) : (
-            <Button type="submit" size="icon" disabled={!draft.trim()} aria-label="Send">
+            <Button type="submit" size="icon" disabled={!draft.trim() || cardUp} aria-label="Send">
               <SendHorizontal />
             </Button>
           )}

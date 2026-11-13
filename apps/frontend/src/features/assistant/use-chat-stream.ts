@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useRef, useState } from "react"
 
-import { cancelRun } from "@/api/chat"
+import { cancelRun, type PendingAction } from "@/api/chat"
 import { ApiError, retryMessage, streamRequest } from "@/api/client"
 import { queryKeys } from "@/api/keys"
 
@@ -30,6 +30,18 @@ export interface LiveTurn {
   resumingRunId: string | null
   error: TurnError | null
   model: string | null
+  /** The card the assistant just raised, until the conversation reloads with it. */
+  pendingAction: PendingAction | null
+  /** True when continuing an existing reply after a decision (keep its bubble on screen). */
+  continuation: boolean
+}
+
+/** Query families the server says a change touched -> the keys to refetch. */
+function invalidateChanged(queryClient: ReturnType<typeof useQueryClient>, changed: unknown): void {
+  if (!Array.isArray(changed)) return
+  for (const family of changed) {
+    if (typeof family === "string") void queryClient.invalidateQueries({ queryKey: [family] })
+  }
 }
 
 type Handler = (event: string, data: unknown) => void
@@ -86,6 +98,12 @@ export function useChatStream() {
             break
           case "model_switched":
             update((t) => ({ ...t, model: str(data.model) ?? null }))
+            break
+          case "confirmation_required":
+            update((t) => ({ ...t, pendingAction: data as unknown as PendingAction }))
+            break
+          case "done":
+            invalidateChanged(queryClient, data.changed)
             break
           case "error":
             update((t) => ({
@@ -148,6 +166,8 @@ export function useChatStream() {
           resumingRunId: null,
           error: null,
           model: null,
+          pendingAction: null,
+          continuation: false,
         },
         `/chat/conversations/${conversationId}/messages`,
         { content: text, client_message_id: crypto.randomUUID() },
@@ -167,9 +187,38 @@ export function useChatStream() {
           resumingRunId: runId,
           error: null,
           model: null,
+          pendingAction: null,
+          continuation: false,
         },
         `/chat/conversations/${conversationId}/runs/${runId}/resume`,
         undefined,
+      ),
+    [run],
+  )
+
+  /** Answer a confirmation card. The reply then continues in the same bubble. */
+  const decide = useCallback(
+    (
+      conversationId: number,
+      actionId: string,
+      decision: "confirm" | "reject",
+      edits?: Record<string, unknown>,
+    ) =>
+      run(
+        {
+          conversationId,
+          userText: null,
+          text: "",
+          tools: [],
+          runId: null,
+          resumingRunId: null,
+          error: null,
+          model: null,
+          pendingAction: null,
+          continuation: true,
+        },
+        `/chat/conversations/${conversationId}/actions/${actionId}`,
+        edits && Object.keys(edits).length ? { decision, edits } : { decision },
       ),
     [run],
   )
@@ -184,7 +233,7 @@ export function useChatStream() {
     }
   }, [live])
 
-  return { live, send, resume, stop, busy: live !== null }
+  return { live, send, resume, decide, stop, busy: live !== null }
 }
 
 export function errorText(error: ApiError): string {

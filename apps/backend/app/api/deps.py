@@ -82,13 +82,17 @@ AnalyticsServiceDep = Annotated[AnalyticsService, Depends(get_analytics_service)
 ResumeServiceDep = Annotated[ResumeService, Depends(get_resume_service)]
 
 
-def get_chat_service(
-    db: DbSession, clock: ClockDep, settings: SettingsDep, user: CurrentUser
-) -> ChatService:
-    return ChatService(db, clock, settings, user.id)
-
-
 CheckpointerDep = Annotated[BaseCheckpointSaver[str], Depends(get_checkpointer)]
+
+
+def get_chat_service(
+    db: DbSession,
+    clock: ClockDep,
+    settings: SettingsDep,
+    user: CurrentUser,
+    checkpointer: CheckpointerDep,
+) -> ChatService:
+    return ChatService(db, clock, settings, user.id, checkpointer)
 
 
 def get_turn_runner(

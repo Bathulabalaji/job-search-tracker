@@ -7,6 +7,8 @@ from fastapi.responses import StreamingResponse
 from app.api.deps import ChatServiceDep, CheckpointerDep, TurnRunnerDep
 from app.models.chat import ChatConversation
 from app.schemas.chat import (
+    ActionDecision,
+    ActionRead,
     ChatConfig,
     ConversationCreate,
     ConversationDetail,
@@ -106,6 +108,33 @@ def resume_run(
     service.prepare_resume(conversation_id, run_id)
     return StreamingResponse(
         runner.stream(run_id, resume=True), media_type="text/event-stream", headers=SSE_HEADERS
+    )
+
+
+@router.get("/conversations/{conversation_id}/actions/{action_id}", response_model=ActionRead)
+def get_action(conversation_id: int, action_id: uuid.UUID, service: ChatServiceDep) -> ActionRead:
+    return service.get_action(conversation_id, action_id)
+
+
+@router.post(
+    "/conversations/{conversation_id}/actions/{action_id}",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}}},
+)
+def decide_action(
+    conversation_id: int,
+    action_id: uuid.UUID,
+    data: ActionDecision,
+    service: ChatServiceDep,
+    runner: TurnRunnerDep,
+) -> StreamingResponse:
+    """Confirm (optionally with edits) or reject a proposed change; the reply then continues
+    as server-sent events (tool_end, token..., done)."""
+    run_id = service.decide(conversation_id, action_id, data)
+    return StreamingResponse(
+        runner.stream(run_id, resume_value={"action_id": str(action_id)}),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
     )
 
 

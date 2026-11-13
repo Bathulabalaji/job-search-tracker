@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 
-import type { ChatMessage, ConversationDetail } from "@/api/chat"
+import type { ChatMessage, ConversationDetail, PendingAction } from "@/api/chat"
 import { ProtectedRoute } from "@/features/auth/route-guards"
 import { apiError, authResponse, mockApi } from "@/test/mock-api"
 import { renderRoutes } from "@/test/render"
@@ -67,6 +67,7 @@ describe("AssistantPage", () => {
           ]
         : [],
       last_run: null,
+      pending_action: null,
     })
     const api = mockApi({
       "GET /auth/me": { body: authResponse() },
@@ -129,6 +130,7 @@ describe("AssistantPage", () => {
         finished_at: "2026-11-13T10:00:05Z",
         resumable: true,
       },
+      pending_action: null,
     }
     const api = mockApi({
       "GET /auth/me": { body: authResponse() },
@@ -173,7 +175,9 @@ describe("AssistantPage", () => {
       "GET /auth/me": { body: authResponse() },
       "GET /chat/config": { body: config },
       "GET /chat/conversations": { body: [conversation] },
-      "GET /chat/conversations/7": { body: { conversation, messages: [], last_run: null } },
+      "GET /chat/conversations/7": {
+        body: { conversation, messages: [], last_run: null, pending_action: null },
+      },
       "POST /chat/conversations/7/messages": apiError(
         429,
         "chat_quota",
@@ -198,5 +202,164 @@ describe("AssistantPage", () => {
     })
     renderRoutes(routes, { route: "/assistant" })
     expect(await screen.findByText("The assistant isn't switched on")).toBeInTheDocument()
+  })
+})
+
+describe("AssistantPage confirmation cards", () => {
+  const pending: PendingAction = {
+    id: "act-1",
+    run_id: "run-1",
+    tool: "move_opportunity",
+    title: "Move Zepto — Backend Engineer",
+    summary: "found → applied",
+    fields: [
+      {
+        name: "stage",
+        label: "New stage",
+        value: "applied",
+        editable: true,
+        type: "select",
+        options: ["found", "applied", "screening"],
+      },
+      { name: "note", label: "Note", value: null, editable: true, type: "text", options: null },
+    ],
+    status: "pending",
+    expires_at: "2026-11-13T10:15:00Z",
+    created_at: "2026-11-13T10:00:00Z",
+    result_summary: null,
+    error: null,
+    warning: null,
+  }
+  const awaiting = (): ConversationDetail => ({
+    conversation,
+    messages: [
+      message({ id: 1, content: "Move Zepto to applied" }),
+      message({
+        id: 2,
+        seq: 2,
+        role: "assistant",
+        status: "awaiting",
+        content: "Sure, moving it.",
+      }),
+    ],
+    last_run: {
+      id: "run-1",
+      status: "awaiting_confirmation",
+      error_code: null,
+      model_switches: 0,
+      started_at: "2026-11-13T10:00:00Z",
+      finished_at: null,
+      resumable: false,
+    },
+    pending_action: { ...pending, fields: [...pending.fields] },
+  })
+
+  it("shows the card and confirms with edits, then the reply continues", async () => {
+    let decided = false
+    const api = mockApi({
+      "GET /auth/me": { body: authResponse() },
+      "GET /chat/config": { body: config },
+      "GET /chat/conversations": { body: [conversation] },
+      "GET /chat/conversations/7": () =>
+        decided
+          ? {
+              body: {
+                ...awaiting(),
+                messages: [
+                  awaiting().messages[0],
+                  {
+                    ...awaiting().messages[1],
+                    status: "complete",
+                    content: "Sure, moving it.\n\nDone.",
+                  },
+                ],
+                last_run: { ...awaiting().last_run, status: "completed" },
+                pending_action: null,
+              },
+            }
+          : { body: awaiting() },
+      "POST /chat/conversations/7/actions/act-1": () => {
+        decided = true
+        return {
+          raw: sse([
+            [
+              "tool_end",
+              {
+                id: "w1",
+                name: "move_opportunity",
+                ok: true,
+                summary: "found → screening",
+                changed: ["opportunities"],
+              },
+            ],
+            ["token", { delta: "Done." }],
+            ["done", { status: "completed", changed: ["opportunities"] }],
+          ]),
+        }
+      },
+    })
+    renderRoutes(routes, { route: "/assistant?c=7" })
+    const user = userEvent.setup()
+
+    const card = await screen.findByRole("region", { name: "Confirm this change" })
+    expect(within(card).getByText("Move Zepto — Backend Engineer")).toBeInTheDocument()
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveAttribute(
+      "placeholder",
+      expect.stringMatching(/confirm or decline/i),
+    )
+    await user.selectOptions(within(card).getByLabelText("New stage"), "screening")
+    await user.click(within(card).getByRole("button", { name: /confirm/i }))
+
+    const panel = await screen.findByRole("region", { name: "Assistant" })
+    expect(await within(panel).findByText("Done.")).toBeInTheDocument()
+    const [call] = api.called("POST", "/chat/conversations/7/actions/act-1")
+    expect(call?.body).toEqual({ decision: "confirm", edits: { stage: "screening" } })
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Confirm this change" })).not.toBeInTheDocument(),
+    )
+  })
+
+  it("declines without edits", async () => {
+    let decided = false
+    const api = mockApi({
+      "GET /auth/me": { body: authResponse() },
+      "GET /chat/config": { body: config },
+      "GET /chat/conversations": { body: [conversation] },
+      "GET /chat/conversations/7": () =>
+        decided
+          ? {
+              body: {
+                ...awaiting(),
+                messages: [
+                  awaiting().messages[0],
+                  { ...awaiting().messages[1], status: "complete", content: "Okay, left as is." },
+                ],
+                last_run: { ...awaiting().last_run, status: "completed" },
+                pending_action: null,
+              },
+            }
+          : { body: awaiting() },
+      "POST /chat/conversations/7/actions/act-1": () => {
+        decided = true
+        return {
+          raw: sse([
+            [
+              "tool_end",
+              { id: "w1", name: "move_opportunity", ok: false, summary: "declined", changed: [] },
+            ],
+            ["token", { delta: "Okay, left as is." }],
+            ["done", { status: "completed", changed: [] }],
+          ]),
+        }
+      },
+    })
+    renderRoutes(routes, { route: "/assistant?c=7" })
+    const user = userEvent.setup()
+    const card = await screen.findByRole("region", { name: "Confirm this change" })
+    await user.click(within(card).getByRole("button", { name: /decline/i }))
+    expect(await screen.findByText("Okay, left as is.")).toBeInTheDocument()
+    expect(api.called("POST", "/chat/conversations/7/actions/act-1")[0]?.body).toEqual({
+      decision: "reject",
+    })
   })
 })
