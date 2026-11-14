@@ -8,6 +8,7 @@ import { LoginPage } from "@/pages/auth/login-page"
 import { RegisterPage } from "@/pages/auth/register-page"
 import { ResetPasswordPage } from "@/pages/auth/reset-password-page"
 import { VerifyEmailPage } from "@/pages/auth/verify-email-page"
+import { ContactPage } from "@/pages/contact-page"
 import { HomeRoute } from "@/pages/landing-page"
 import { AccountPage } from "@/pages/account-page"
 import { ContactsPage } from "@/pages/contacts-page"
@@ -21,6 +22,8 @@ import { TodayPage } from "@/pages/today-page"
 export const router = createBrowserRouter([
   // Public landing page; signed-in visitors are forwarded to /today.
   { path: "/", element: <HomeRoute /> },
+  // Public contact details; reachable signed in or out.
+  { path: "contact", element: <ContactPage /> },
   // Signed-out pages. Signed-in visitors are sent on to the app.
   {
     element: <PublicOnlyRoute />,

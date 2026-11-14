@@ -6,16 +6,20 @@ import {
   CalendarCheck,
   Check,
   ClipboardList,
-  Command,
   Kanban,
   KeyRound,
   LockKeyhole,
+  MessageSquareText,
+  ScanSearch,
   ShieldCheck,
+  Sparkles,
+  Telescope,
   UserRoundCheck,
   type LucideIcon,
 } from "lucide-react"
 import { Link, Navigate } from "react-router-dom"
 
+import { Logo } from "@/components/common/logo"
 import { ProductPreview } from "@/components/landing/product-preview"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { Button } from "@/components/ui/button"
@@ -40,8 +44,8 @@ const NAV_LINKS = [
 
 const FACTS = [
   { value: "10", label: "pipeline stages, from found to accepted" },
-  { value: "2 days", label: "until a follow-up is created for you" },
-  { value: "21 days", label: "of silence before we suggest ghosted" },
+  { value: "14", label: "ready-to-edit email and LinkedIn message templates" },
+  { value: "3", label: "resumes, each scored against every job you track" },
   { value: "⌘K", label: "to add or jump anywhere" },
 ] as const
 
@@ -67,12 +71,34 @@ const FEATURES: readonly Feature[] = [
   {
     icon: BellRing,
     title: "Follow-ups that create themselves",
-    body: "Apply or reach screening and a follow-up appears, due in two working days. Silent for three weeks? You get a gentle nudge to mark it ghosted.",
+    body: "Apply or reach screening and a follow-up appears. Silent for three weeks? You get a gentle nudge to mark it ghosted.",
+  },
+  {
+    icon: MessageSquareText,
+    title: "Follow-up messages, written for you to send",
+    body: "Pick what to send next and get a draft filled from the role, the contact and your details: referral asks, follow-ups, thank-yous, offer replies. Open it in your mail app, Gmail or LinkedIn. Edit any template or add your own, and mark it sent so the next nudge is scheduled.",
+    className: "lg:col-span-2",
+  },
+  {
+    icon: Sparkles,
+    title: "An assistant that knows your search",
+    body: "Ask about your pipeline in plain words, find roles from chat, or have it log a note or move a stage. It always asks you to confirm before it changes anything.",
+    className: "lg:col-span-2",
+  },
+  {
+    icon: ScanSearch,
+    title: "See which resume fits the job",
+    body: "Upload up to three resume PDFs. Each job gets a match score for every one, with the skills you are missing.",
+  },
+  {
+    icon: Telescope,
+    title: "Jobs for you",
+    body: "Fresh postings ranked against your resumes. Track one in a tap, or dismiss it.",
   },
   {
     icon: BarChart3,
     title: "See what is actually working",
-    body: "Weekly targets against real numbers, your funnel, response rate by source and applications per day.",
+    body: "Weekly targets against real numbers, your funnel, response rate by source, and which message templates get replies.",
     className: "lg:col-span-2",
   },
   {
@@ -95,11 +121,11 @@ const STEPS = [
   },
   {
     title: "Move it forward",
-    body: "Drag cards between stages. Calls, emails and nudges become a timeline, and follow-ups are scheduled for you.",
+    body: "Drag cards between stages. Calls, emails and nudges become a timeline, and each follow-up comes with a draft message you can edit and send.",
   },
   {
     title: "Review and adjust",
-    body: "Check your weekly scorecard, see which sources reply, and put effort where it pays off.",
+    body: "Check your weekly scorecard, see which sources and messages get replies, and put effort where it pays off.",
   },
 ] as const
 
@@ -107,35 +133,24 @@ const PRIVACY_POINTS: readonly { icon: LucideIcon; title: string; body: string }
   {
     icon: UserRoundCheck,
     title: "Your data is yours alone",
-    body: "Every record is tied to your account. Nobody else can read it.",
+    body: "Every record is tied to your account. Passwords are hashed with Argon2id, and web sessions use HttpOnly cookies that scripts cannot read.",
   },
   {
     icon: LockKeyhole,
-    title: "Hardened sign-in",
-    body: "Passwords are hashed with Argon2id. Sessions live in HttpOnly cookies that scripts cannot read.",
-  },
-  {
-    icon: KeyRound,
-    title: "Google or email",
-    body: "Continue with Google or use email and password, with verified addresses and safe password resets.",
+    title: "Resumes are scrubbed first",
+    body: "ID numbers, bank details, birth dates, emails and phone numbers are removed from resume text before it is stored or analysed. The PDF itself sits in private storage.",
   },
   {
     icon: ShieldCheck,
-    title: "Nothing sensitive stored",
-    body: "No government IDs, bank details or resume files. Just the job-search notes you choose to add.",
+    title: "The assistant is optional",
+    body: "Turn it off any time in Account. When it is on, only scrubbed text goes to the AI providers (Groq and Google), and they never see your password.",
+  },
+  {
+    icon: KeyRound,
+    title: "You press send",
+    body: "Nothing is ever emailed or messaged for you. Drafts open in your own mail app or LinkedIn, and you read every word first.",
   },
 ]
-
-function Logo() {
-  return (
-    <Link to="/" className="flex items-center gap-2 rounded-md font-semibold tracking-tight">
-      <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-        <Command className="size-4" aria-hidden />
-      </span>
-      Jobs Tracker
-    </Link>
-  )
-}
 
 function SectionHeading({
   eyebrow,
@@ -187,6 +202,12 @@ export function LandingPage() {
                 {l.label}
               </a>
             ))}
+            <Link
+              to="/contact"
+              className="rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Contact
+            </Link>
           </nav>
           <div className="ml-auto flex items-center gap-1.5">
             <ThemeToggle />
@@ -216,8 +237,8 @@ export function LandingPage() {
               .
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-pretty text-muted-foreground">
-              Track every opportunity, recruiter and follow-up in one place. See exactly what to do
-              today, and learn what is working week by week.
+              Track every opportunity, recruiter and follow-up in one place. Get a draft for the
+              next message, see which resume fits each job, and learn what is working week by week.
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button asChild size="lg" className="h-11 px-6 text-base shadow-lg shadow-primary/30">
@@ -262,7 +283,7 @@ export function LandingPage() {
           <SectionHeading
             eyebrow="Features"
             title="Everything a serious search needs, nothing it does not"
-            body="Built around the real rhythm of job hunting: apply, follow up, interview, repeat."
+            body="Built around the real rhythm of job hunting: apply, follow up, interview, repeat, with an assistant and message drafts to save you the typing."
           />
           <div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
@@ -345,16 +366,14 @@ export function LandingPage() {
                 shortcut.
               </p>
               <ul className="mx-auto mt-6 flex max-w-md flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
-                {[
-                  "Private to your account",
-                  "Google or email sign-in",
-                  "Light and dark themes",
-                ].map((t) => (
-                  <li key={t} className="flex items-center gap-1.5">
-                    <Check className="size-4 text-emerald-400" aria-hidden />
-                    {t}
-                  </li>
-                ))}
+                {["Private to your account", "Web and Android app", "Google or email sign-in"].map(
+                  (t) => (
+                    <li key={t} className="flex items-center gap-1.5">
+                      <Check className="size-4 text-emerald-400" aria-hidden />
+                      {t}
+                    </li>
+                  ),
+                )}
               </ul>
               <Button
                 asChild
@@ -384,6 +403,9 @@ export function LandingPage() {
             <Link to="/register" className="hover:text-foreground">
               Create account
             </Link>
+            <Link to="/contact" className="hover:text-foreground">
+              Contact
+            </Link>
             {TERMS_URL ? (
               <a
                 href={TERMS_URL}
@@ -405,7 +427,7 @@ export function LandingPage() {
               </a>
             ) : null}
           </nav>
-          <p>© {COPYRIGHT_YEAR} Jobs Tracker</p>
+          <p>© {COPYRIGHT_YEAR} Career Command Center</p>
         </div>
       </footer>
     </div>

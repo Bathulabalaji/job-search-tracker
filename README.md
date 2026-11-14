@@ -496,3 +496,4 @@ Each app has its own `.env.example`. Copy it to `.env` in the same folder. `.env
 | | `FRONTEND_URL`, `SECRET_KEY`, `COOKIE_*`, `SESSION_*`, `GOOGLE_CLIENT_ID`, `SENDGRID_API_KEY`, `EMAIL_FROM_*`, `LEGACY_DATA_OWNER_EMAIL`, `TRUSTED_PROXY_COUNT` | Accounts. See [Authentication and accounts](#authentication-and-accounts) and `.env.example` |
 | `apps/frontend/.env` | `VITE_API_BASE_URL` | Backend base URL, default `http://localhost:8000/api/v1` |
 | | `VITE_GOOGLE_CLIENT_ID`, `VITE_TERMS_URL`, `VITE_PRIVACY_URL` | Public Google client ID; optional terms and privacy links |
+| | `VITE_CONTACT_NAME`, `VITE_CONTACT_EMAIL`, `VITE_CONTACT_PHONE`, `VITE_CONTACT_LINKEDIN_URL`, `VITE_CONTACT_GITHUB_URL` | Public details on the `/contact` page; empty ones are hidden |
