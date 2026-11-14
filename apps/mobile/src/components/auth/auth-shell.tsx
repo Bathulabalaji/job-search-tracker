@@ -32,7 +32,7 @@ export function AuthShell({
         >
           <Icon name="rocket" size={20} color="onPrimary" />
         </View>
-        <Text variant="heading">Jobs Tracker</Text>
+        <Text variant="heading">Career Command Center</Text>
       </View>
       <View style={{ gap: 4, marginBottom: 8 }}>
         <Text variant="hero" accessibilityRole="header">

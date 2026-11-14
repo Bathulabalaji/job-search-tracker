@@ -14,7 +14,7 @@ const reversedIosScheme = googleIosClientId
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: "Jobs Tracker",
+  name: "Career Command Center",
   slug: "jobs-tracker",
   version: "1.0.0",
   orientation: "portrait",
@@ -33,7 +33,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       foregroundImage: "./assets/images/android-icon-foreground.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
-    predictiveBackGestureEnabled: true,
+    // Off: with predictive back on, the system back button/swipe can exit the app instead of
+    // popping the screen stack (the on-screen header arrow still works).
+    predictiveBackGestureEnabled: false,
   },
   web: { bundler: "metro", output: "single", favicon: "./assets/images/favicon.png" },
   plugins: [

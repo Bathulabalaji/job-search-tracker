@@ -47,7 +47,7 @@ export default function AccountScreen() {
     if ((await ensureReminderPermission()) === "denied") {
       Alert.alert(
         "Notifications are off",
-        "Allow notifications for Jobs Tracker in your phone's settings to get follow-up reminders.",
+        "Allow notifications for Career Command Center in your phone's settings to get follow-up reminders.",
         [
           { text: "Not now", style: "cancel" },
           { text: "Open settings", onPress: () => void Linking.openSettings() },
@@ -147,7 +147,7 @@ export default function AccountScreen() {
           Open the website
         </Text>
         <Text variant="caption" tone="muted">
-          Jobs Tracker {Constants.expoConfig?.version ?? ""}
+          Career Command Center {Constants.expoConfig?.version ?? ""}
         </Text>
       </View>
 
