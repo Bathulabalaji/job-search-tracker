@@ -206,10 +206,17 @@ export async function upload<T>(path: string, file: UploadFile): Promise<T> {
       body: form,
       signal: controller.signal,
     });
-  } catch {
+  } catch (cause) {
+    if (__DEV__) console.warn("upload failed before a response", path, cause);
+    if (controller.signal.aborted)
+      throw new ApiError(
+        0,
+        "The upload timed out. The server may be waking up; try again in a minute.",
+      );
+    const reason = cause instanceof Error ? cause.message : "";
     throw new ApiError(
       0,
-      "Can't reach the server. Check your connection and try again.",
+      `Couldn't send the file${reason ? ` (${reason})` : ""}. Check your connection and try again.`,
     );
   } finally {
     clearTimeout(timer);
