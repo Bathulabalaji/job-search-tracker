@@ -107,6 +107,27 @@ class Settings(BaseSettings):
     resume_max_documents: int = 3  # uploaded files per user
     resume_process_daily_limit: int = 5  # manual re-index requests per user
 
+    # ---- Job search (Phase 3) ---------------------------------------------------------------
+    # Search APIs only, never scraping. A blank key turns that provider off; with none set the
+    # assistant says job search isn't available. Quotas sit a little under each free tier.
+    adzuna_app_id: str = ""
+    adzuna_app_key: str = ""
+    rapidapi_key: str = ""  # JSearch (Google for Jobs: LinkedIn, Naukri, career pages)
+    serpapi_key: str = ""
+    tavily_api_key: str = ""
+    jobsearch_country: str = "in"  # ISO code the searches are run for
+    jobsearch_provider_order: str = "adzuna,jsearch,serpapi,tavily"
+    jobsearch_adzuna_daily_quota: int = 240
+    jobsearch_jsearch_monthly_quota: int = 190
+    jobsearch_serpapi_monthly_quota: int = 240
+    jobsearch_tavily_monthly_quota: int = 950
+    jobsearch_timeout_seconds: float = 8.0  # one provider call
+    job_cache_ttl_hours: int = 24  # how long a fetched posting is served from the cache
+    job_query_cache_hours: int = 6  # an identical search within this window costs nothing
+    job_active_check_enabled: bool = True
+    job_active_check_timeout_seconds: float = 5.0
+    chat_search_daily_limit: int = 10  # live searches per user per day
+
     @property
     def frontend_is_local(self) -> bool:
         return (urlparse(self.frontend_url).hostname or "") in LOCAL_HOSTS
@@ -126,6 +147,15 @@ class Settings(BaseSettings):
     @property
     def llm_enabled(self) -> bool:
         return bool(self.groq_api_key or self.google_ai_api_key)
+
+    @property
+    def job_search_enabled(self) -> bool:
+        return bool(
+            (self.adzuna_app_id and self.adzuna_app_key)
+            or self.rapidapi_key
+            or self.serpapi_key
+            or self.tavily_api_key
+        )
 
     @property
     def allowed_origins(self) -> set[str]:

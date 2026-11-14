@@ -28,9 +28,11 @@ from app.models.enums import (
 )
 from app.schemas.followup import FollowupCreate, FollowupUpdate
 from app.schemas.interaction import InteractionCreate
+from app.schemas.job import TrackJobRequest
 from app.schemas.opportunity import MoveRequest, OpportunityCreate, OpportunityUpdate
 from app.services.followup import FollowupService
 from app.services.interaction import InteractionService
+from app.services.job_search import JobSearchService
 from app.services.opportunity import OpportunityService
 
 FieldType = Literal["text", "date", "datetime", "select", "number"]
@@ -149,8 +151,21 @@ class CreateOpportunityArgs(BaseModel):
     next_action: str | None = Field(None, max_length=500)
 
 
+class TrackJobArgs(BaseModel):
+    job_posting_id: int = Field(description="An id returned by search_jobs")
+    priority: int = Field(2, ge=1, le=3)
+    stage: Literal["found", "applied"] = Field(
+        "found", description="applied only if the user says they already applied"
+    )
+
+
 def build_write_tools(
-    session: Session, clock: Clock, settings: Settings, user_id: int
+    session: Session,
+    clock: Clock,
+    settings: Settings,
+    user_id: int,
+    *,
+    jobs: JobSearchService | None = None,
 ) -> dict[str, WriteTool]:
     opportunities = OpportunityService(session, clock, settings, user_id)
     followups = FollowupService(session, clock, user_id)
@@ -335,6 +350,34 @@ def build_write_tools(
             changed=("opportunities", "dashboard", "analytics"),
         )
 
+    # -- track a job search result -----------------------------------------------------------
+    def track_preview(raw: BaseModel) -> ActionPreview:
+        assert jobs is not None
+        a = TrackJobArgs.model_validate(raw.model_dump())
+        job = jobs.get(a.job_posting_id)  # NotFoundError for an id that never existed
+        if job.tracked_opportunity_id is not None:
+            raise ConflictError(f"{job.company} — {job.title} is already in the pipeline")
+        where = " · ".join(p for p in (job.location, job.work_mode, job.source_site) if p)
+        return ActionPreview(
+            title=f"Track {job.company} — {job.title}",
+            summary=f"{where} → {a.stage}" if where else f"→ {a.stage}",
+            fields=[
+                field("stage", "Stage", a.stage, type="select", options=["found", "applied"]),
+                field("priority", "Priority (1 high – 3 low)", a.priority, type="number"),
+                field("apply_url", "Job link", job.apply_url, editable=False),
+            ],
+        )
+
+    def track_execute(raw: BaseModel) -> ActionResult:
+        assert jobs is not None
+        a = TrackJobArgs.model_validate(raw.model_dump())
+        o = jobs.track(a.job_posting_id, TrackJobRequest(priority=a.priority, stage=a.stage))
+        return ActionResult(
+            summary=f"Added {o.company} — {o.role} ({o.stage.value})",
+            data={"opportunity_id": o.id, "job_posting_id": a.job_posting_id},
+            changed=("opportunities", "dashboard", "analytics", "jobs"),
+        )
+
     tools = [
         WriteTool(
             "move_opportunity",
@@ -381,8 +424,30 @@ def build_write_tools(
             create_execute,
         ),
     ]
+    if jobs is not None and jobs.enabled:
+        tools.append(
+            WriteTool(
+                "add_job_to_pipeline",
+                "Track a job from search_jobs as a new opportunity (stage found unless the "
+                "user already applied).",
+                TrackJobArgs,
+                track_preview,
+                track_execute,
+            )
+        )
     return {t.name: t for t in tools}
 
+
+# Argument schemas by tool name: enough to validate a card's edits without building services.
+WRITE_ARGS: dict[str, type[BaseModel]] = {
+    "move_opportunity": MoveArgs,
+    "add_followup": AddFollowupArgs,
+    "mark_followup": MarkFollowupArgs,
+    "log_interaction": LogInteractionArgs,
+    "set_next_action": SetNextActionArgs,
+    "create_opportunity": CreateOpportunityArgs,
+    "add_job_to_pipeline": TrackJobArgs,
+}
 
 WRITE_TOOLS = (
     "move_opportunity",
@@ -391,4 +456,5 @@ WRITE_TOOLS = (
     "log_interaction",
     "set_next_action",
     "create_opportunity",
+    "add_job_to_pipeline",
 )

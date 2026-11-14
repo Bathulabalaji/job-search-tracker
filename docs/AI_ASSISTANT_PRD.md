@@ -465,3 +465,34 @@ Differences from the plan:
   brief's forbidden list; government IDs, bank/card numbers, DOB and passwords are redacted.
 - Live check (dev DB, real Gemini): upload + indexing 4.8 s for a one-page resume; profile
   extracted correctly; a "payments API on PostgreSQL" query ranked the right passages first.
+
+### Phase 3 (shipped 2026-11-14)
+
+Built as specified: Adzuna, JSearch, SerpApi and Tavily adapters behind one provider protocol;
+URL canonicalisation and dedupe by canonical link, then by company + title + city; a global
+`job_postings` cache (24 h) and a per-user `job_search_queries` log answering identical
+searches within 6 h for free; per-provider day or month quotas pre-checked in the ledger
+(`kind=search`, row-locked check-then-reserve); per-user daily search allowance; cached
+fallback with a notice when every provider is spent; link liveness checks (top 5, 5 workers,
+6 s budget, 12 h re-check); Track maps the posting to an opportunity with source, work mode,
+JD and keyword stack tags. Chat tools `search_jobs`, `check_job_active` and the write tool
+`add_job_to_pipeline` (behind a confirmation card); job cards stream as a `cards` event and are
+persisted on the reply as `chat_messages.attachments`. Web and mobile render the cards.
+Differences from the plan:
+- **Prompt Guard is not called.** Injection screening is the regex pass plus the
+  `<untrusted_content>` wrapper and the always-confirmed write path. Adding the Groq
+  `llama-prompt-guard-2-86m` screen costs one call per search and remains an option.
+- **SerpApi freshness and remote filters are applied after the call**: Google deprecated the
+  `chips` and `ltype` parameters, so `detected_extensions.posted_at` is parsed instead.
+- **Tavily results are web pages**, so company and title are read from the page title and the
+  ATS URL slug; results without either are dropped.
+- **Link checks refuse non-public addresses** (DNS-resolved), since links come from third
+  parties. LinkedIn returns 999 to bots, which shows as "Not verified".
+- **Fixed on the way**: the chat runner never passed the AI gateway to the read tools, so
+  `search_resume` silently fell back to keyword search in conversations. It now uses
+  embeddings. Tool summaries also said "5 matchs".
+- **Not live-verified**: no search API keys were configured at build time. Adapters are tested
+  against recorded response shapes from each provider's documentation; the link checker was
+  run live once (a closed Greenhouse posting read as inactive; local and cloud-metadata
+  addresses were refused).
+

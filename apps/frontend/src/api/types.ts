@@ -64,6 +64,8 @@ export interface Opportunity {
   next_action_due: string | null
   created_at: string
   updated_at: string
+  /** Set when the opportunity was tracked from a job search result. */
+  job_posting_id?: number | null
   last_contact_at: string | null
   days_since_contact: number
   ghosted_suggestion: boolean

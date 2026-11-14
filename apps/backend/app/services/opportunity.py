@@ -62,8 +62,13 @@ class OpportunityService:
 
     # ---- writes ------------------------------------------------------------------------------
 
-    def create(self, data: OpportunityCreate) -> OpportunityRead:
-        opp = self.opportunities.add(Opportunity(**data.model_dump()))
+    def create(
+        self, data: OpportunityCreate, *, job_posting_id: int | None = None
+    ) -> OpportunityRead:
+        """`job_posting_id` links a posting tracked from job search (not settable by clients)."""
+        opp = self.opportunities.add(
+            Opportunity(**data.model_dump(), job_posting_id=job_posting_id)
+        )
         self._ensure_auto_followup(opp)
         self.session.commit()
         return self._read_by_id(opp.id)

@@ -17,6 +17,7 @@ import {
   useConversations,
   useCreateConversation,
   useDeleteConversation,
+  type ChatAttachment,
   type ChatMessage,
   type PendingAction,
 } from "@/api/chat";
@@ -27,6 +28,7 @@ import { Icon } from "@/components/ui/icon";
 import { Sheet } from "@/components/ui/sheet";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { Text } from "@/components/ui/text";
+import { AttachmentList } from "@/features/assistant/job-cards";
 import { LiteMarkdown } from "@/features/assistant/lite-markdown";
 import {
   errorText,
@@ -49,6 +51,11 @@ const TOOL_LABELS: Record<string, string> = {
   list_contacts: "Contacts",
   list_prep_items: "Prep topics",
   list_resumes: "Resumes",
+  get_resume_profile: "Resume profile",
+  search_resume: "Resume search",
+  search_jobs: "Job search",
+  check_job_active: "Check job link",
+  add_job_to_pipeline: "Track job",
   move_opportunity: "Move stage",
   add_followup: "Add follow-up",
   mark_followup: "Update follow-up",
@@ -64,6 +71,7 @@ type Row =
       kind: "assistant";
       text: string;
       tools: { name: string; ok?: boolean | null; summary?: string | null }[];
+      cards?: ChatAttachment[];
       status?: ChatMessage["status"];
       streaming?: boolean;
       error?: TurnError | null;
@@ -206,6 +214,7 @@ function ChatPanel({
           kind: "assistant",
           text: m.content,
           tools: m.tool_calls ?? [],
+          cards: m.attachments ?? [],
           status: m.status,
           onRetry:
             m.status === "failed" &&
@@ -227,6 +236,7 @@ function ChatPanel({
       kind: "assistant",
       text: live.text,
       tools: live.tools,
+      cards: live.cards,
       streaming: true,
       error: live.error,
       onRetry: live.runId ? () => void retry(live.runId ?? "") : undefined,
@@ -302,8 +312,9 @@ function ChatPanel({
             Ask about your job search
           </Text>
           <Text tone="muted" style={{ textAlign: "center", maxWidth: 360 }}>
-            I can look up your pipeline, follow-ups, interviews, contacts, prep
-            and weekly progress. I can't change anything yet.
+            I can look up your pipeline, follow-ups, interviews, contacts, prep,
+            resumes and weekly progress, find job openings, and make changes
+            after you confirm them.
           </Text>
           <View
             style={{
@@ -540,7 +551,7 @@ function AssistantBubble({
   row: Extract<Row, { kind: "assistant" }>;
 }) {
   const { colors } = useTheme();
-  const { text, tools, streaming, status, error, onRetry } = row;
+  const { text, tools, cards, streaming, status, error, onRetry } = row;
   return (
     <View style={{ flexDirection: "row", gap: 10 }}>
       <View
@@ -559,6 +570,7 @@ function AssistantBubble({
       <View style={{ flex: 1, gap: 6 }}>
         {tools.length ? <ToolChips tools={tools} /> : null}
         {text ? <LiteMarkdown text={text} /> : null}
+        {cards?.length ? <AttachmentList items={cards} /> : null}
         {streaming && !text && !error ? (
           <Text tone="muted" variant="small">
             Thinking…

@@ -54,6 +54,9 @@ class ChatMessage(OwnedMixin, Base):
     # Tool activity of an assistant turn: [{name, args, ok, summary}]. Shown in the UI and
     # replayed into later prompts as one-line markers, never as raw tool output.
     tool_calls: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    # Structured results shown under the reply, e.g. [{"type": "job", ...}]. Links in the UI
+    # come only from here, never from the model's text.
+    attachments: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(
         String(16), default="complete", server_default="complete"
     )  # complete | failed | cancelled

@@ -99,7 +99,7 @@ def test_a_slow_lookup_is_cut_off_and_the_session_stays_usable(db: Session) -> N
     quick = with_statement_timeout(db, 1.0, lambda _: {"ok": True})
     assert quick(NoArgs()) == {"ok": True}
     tool = AssistantTool("t", "d", NoArgs, guarded, lambda r: "n/a")
-    ok, summary, content = _run_tool(tool, "t", {}, 1)
+    ok, summary, content, _ = _run_tool(tool, "t", {}, 1)
     assert (ok, summary) == (False, "timed out") and "took too long" in content
 
 

@@ -43,7 +43,7 @@ Layout: `app/api` (routers), `app/services`, `app/repositories`, `app/models`, `
 | --- | --- | --- | --- |
 | Health endpoint | any | `curl http://localhost:8000/api/v1/health` | `{"status":"ok"}` |
 | OpenAPI docs | browser | <http://localhost:8000/docs> | Swagger UI listing health, opportunities, contacts, interactions, followups |
-| Tests | `apps/backend` | `uv run pytest` | 501 passed |
+| Tests | `apps/backend` | `uv run pytest` | 557 passed |
 | Types | `apps/backend` | `uv run mypy` | `Success: no issues found` |
 | Lint | `apps/backend` | `uv run ruff check .` | `All checks passed!` |
 | Alembic connects | `apps/backend` | `uv run alembic current` | `0004 (head)` after you run the migration below |
@@ -82,7 +82,7 @@ The script has four independent sections, and each runs only if that account has
 From `apps/backend`:
 
 ```bash
-uv run pytest            # 501 tests
+uv run pytest            # 557 tests
 uv run pytest tests/unit # pure rules only, no database needed
 ```
 
@@ -381,6 +381,40 @@ manual retry (`POST /resumes/{id}/document/process`, limited per day).
   then `TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:55432/ccc_test uv run pytest`.
 - **Assistant**: new tools `get_resume_profile` and `search_resume` ("what does my backend resume
   say about Kafka?"); search falls back to keywords if embeddings are unavailable.
+
+### Job search (Phase 3)
+
+Ask "find backend Python jobs in Bengaluru posted this week" and the assistant searches live
+postings through **search APIs only**. LinkedIn and Naukri are never scraped. Their postings
+arrive through Google-for-Jobs aggregators. Results show as cards with **Open** and **Track**,
+and Track adds the job to the pipeline as an opportunity (from chat, after a confirmation card).
+
+- **Providers**, tried in `JOBSEARCH_PROVIDER_ORDER` until there are enough distinct results.
+  Each is off until its key is set:
+
+  | Provider | Keys | Free tier | Good for |
+  | --- | --- | --- | --- |
+  | Adzuna | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` ([developer.adzuna.com](https://developer.adzuna.com)) | ~250 calls/day | India feed, first in line |
+  | JSearch | `RAPIDAPI_KEY` (subscribe to JSearch on RapidAPI) | 200 requests/month | LinkedIn, Naukri, career pages |
+  | SerpApi | `SERPAPI_KEY` | 250 searches/month | Google Jobs |
+  | Tavily | `TAVILY_API_KEY` | 1,000 credits/month | Company career pages (Greenhouse, Lever, Workday...) |
+
+- **Budgets**: every provider call is counted in `provider_usage_events` before it is made, so
+  the `JOBSEARCH_*_QUOTA` limits (set a little under each free tier) can't be overrun. A provider
+  that answers "quota exhausted" is parked until its window resets. Each user gets
+  `CHAT_SEARCH_DAILY_LIMIT` live searches a day (default 10); an identical search within
+  `JOB_QUERY_CACHE_HOURS` (6) is answered from the cache for free. When every provider is spent,
+  recent cached postings are shown with a notice.
+- **Still open?** The top results' apply links are checked (`JOB_ACTIVE_CHECK_ENABLED`):
+  LinkedIn and Naukri get a HEAD request only, other sites a small GET checked for "no longer
+  accepting applications". Blocked or ambiguous checks show "Not verified", never "closed".
+  Private and local addresses are never fetched.
+- **Untrusted text**: descriptions are stripped of lines that read like instructions to an AI,
+  capped, and passed to the model inside `<untrusted_content>`. Card links come only from the
+  structured result, never from the model's text.
+- **API**: `POST /jobs/search`, `GET /jobs/{id}`, `POST /jobs/{id}/track` (409
+  `already_tracked`), `POST /jobs/{id}/check`. Migration `0009` adds `job_postings` (a shared
+  cache), `job_search_queries`, `opportunities.job_posting_id` and `chat_messages.attachments`.
 
 Every provider call is a row in `provider_usage_events` (tokens, latency, outcome; never the
 prompt). Logs carry the same fields under the `llm_call` event. Optional LangSmith tracing

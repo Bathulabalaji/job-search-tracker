@@ -34,6 +34,7 @@ class MessageRead(ORMModel):
     role: str
     content: str
     tool_calls: list[dict[str, Any]] | None
+    attachments: list[dict[str, Any]] | None = None
     status: str
     error_code: str | None
     model: str | None
@@ -115,3 +116,5 @@ class ChatConfig(BaseModel):
     messages_per_day: QuotaRead
     max_message_chars: int = 2000
     suggestions: list[str]
+    job_search: bool = False
+    searches_per_day: QuotaRead | None = None

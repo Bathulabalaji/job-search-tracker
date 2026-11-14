@@ -316,6 +316,7 @@ function ChatPanel({
                 key={m.id}
                 text={m.content}
                 tools={m.tool_calls ?? []}
+                cards={m.attachments ?? []}
                 status={m.status}
                 onRetry={
                   m.status === "failed" &&
@@ -345,6 +346,7 @@ function ChatPanel({
             <AssistantBubble
               text={live.text}
               tools={live.tools}
+              cards={live.cards}
               streaming
               error={live.error}
               onRetry={live.runId ? () => void retry(live.runId ?? "") : undefined}

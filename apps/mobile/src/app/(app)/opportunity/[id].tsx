@@ -137,6 +137,7 @@ export default function OpportunityDetailScreen() {
           <PriorityBadge priority={o.priority} />
           {o.fit_score !== null ? <Badge label={`${o.fit_score}% fit`} tone="success" /> : null}
           {o.ghosted_suggestion ? <Badge label="Maybe ghosted" tone="warning" /> : null}
+          {o.job_posting_id ? <Badge label="Found via job search" tone="info" /> : null}
         </View>
       </View>
 

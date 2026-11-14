@@ -43,7 +43,7 @@ from app.assistant.context import Context
 from app.assistant.prompts import DECLINE_MESSAGE, GUARDRAIL_PROMPT
 from app.assistant.tools import AssistantTool, ToolTimeout, compact, toolset_for
 from app.assistant.write_tools import WriteTool
-from app.core.errors import DomainError, NotFoundError
+from app.core.errors import DomainError, NotFoundError, RateLimitedError
 from app.llm.errors import LLMError
 from app.llm.gateway import LLMGateway, RunBudget
 from app.llm.policy import Task
@@ -61,6 +61,7 @@ Intent = Literal[
     "contacts",
     "prep",
     "resumes",
+    "job_search",
     "write",
     "smalltalk",
     "other_in_scope",
@@ -88,6 +89,8 @@ class ChatState(TypedDict, total=False):
     in_scope: bool
     tool_calls_made: int
     tool_log: Annotated[list[dict[str, Any]], operator.add]
+    # Structured results for the UI (job cards...), persisted on the assistant message.
+    attachments: Annotated[list[dict[str, Any]], operator.add]
     model: str
     prompt_tokens: Annotated[int, operator.add]
     completion_tokens: Annotated[int, operator.add]
@@ -206,6 +209,7 @@ def build_graph(deps: AgentDeps) -> StateGraph[ChatState]:
         made = state.get("tool_calls_made", 0)
         outputs: list[ToolMessage] = []
         log: list[dict[str, Any]] = []
+        attachments: list[dict[str, Any]] = []
         for call in last.tool_calls:
             call_id = call.get("id") or f"call_{made}"
             name = call["name"]
@@ -215,14 +219,22 @@ def build_graph(deps: AgentDeps) -> StateGraph[ChatState]:
                 entry, content = _handle_write(deps, call_id, name, args, write)
             else:
                 write({"event": "tool_start", "id": call_id, "name": name})
-                ok, summary, content = _run_tool(deps.tools.get(name), name, args, made)
+                ok, summary, content, cards = _run_tool(deps.tools.get(name), name, args, made)
                 write(
                     {"event": "tool_end", "id": call_id, "name": name, "ok": ok, "summary": summary}
                 )
+                if cards:
+                    write({"event": "cards", "items": cards})
+                    attachments.extend(cards)
                 entry = {"name": name, "args": args, "ok": ok, "summary": summary}
             outputs.append(ToolMessage(content=content, tool_call_id=call_id, name=name))
             log.append(entry)
-        return {"messages": outputs, "tool_calls_made": made, "tool_log": log}
+        return {
+            "messages": outputs,
+            "tool_calls_made": made,
+            "tool_log": log,
+            "attachments": attachments,
+        }
 
     def after_guardrail(state: ChatState) -> str:
         return "agent" if state.get("in_scope", True) else "decline"
@@ -246,36 +258,41 @@ def build_graph(deps: AgentDeps) -> StateGraph[ChatState]:
 
 def _run_tool(
     tool: AssistantTool | None, name: str, args: dict[str, Any], made: int
-) -> tuple[bool, str, str]:
-    """(ok, short summary for the UI, content for the model). Never raises."""
+) -> tuple[bool, str, str, list[dict[str, Any]]]:
+    """(ok, short summary for the UI, content for the model, cards for the UI). Never raises."""
     if made > MAX_TOOL_CALLS:
         return (
             False,
             "tool limit reached",
             ('{"error":"Tool limit reached for this answer. Answer with what you have."}'),
+            [],
         )
     if tool is None:
-        return False, "unknown tool", f'{{"error":"There is no tool named {name}."}}'
+        return False, "unknown tool", f'{{"error":"There is no tool named {name}."}}', []
     try:
         parsed = tool.args.model_validate(args)
         result = tool.run(parsed)
-        return True, tool.summarize(result), compact(result)
+        cards = list(result.pop("_cards", None) or [])
+        return True, tool.summarize(result), compact(result, tool.max_chars), cards
     except ValidationError as exc:
         problems = "; ".join(e["msg"] for e in exc.errors()[:3])
-        return False, "invalid arguments", compact({"error": f"Invalid arguments: {problems}"})
+        return False, "invalid arguments", compact({"error": f"Invalid arguments: {problems}"}), []
     except NotFoundError as exc:
-        return False, "not found", compact({"error": str(exc)})
+        return False, "not found", compact({"error": str(exc)}), []
     except ToolTimeout:
         return (
             False,
             "timed out",
             ('{"error":"That lookup took too long. Try a narrower question or fewer rows."}'),
+            [],
         )
+    except RateLimitedError as exc:  # e.g. the daily job-search allowance
+        return False, "limit reached", compact({"error": exc.message}), []
     except DomainError as exc:
-        return False, "failed", compact({"error": str(exc)})
+        return False, "failed", compact({"error": str(exc)}), []
     except Exception:
         logger.exception("assistant_tool_failed", extra={"tool": name})
-        return False, "failed", '{"error":"That lookup failed. Tell the user it did not work."}'
+        return False, "failed", '{"error":"That lookup failed. Tell the user it did not work."}', []
 
 
 def _handle_write(

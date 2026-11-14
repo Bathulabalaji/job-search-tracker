@@ -67,6 +67,8 @@ class OpportunityRead(ORMModel):
     next_action_due: date | None
     created_at: datetime
     updated_at: datetime
+    # Set when the opportunity was tracked from a job search result.
+    job_posting_id: int | None = None
     # Derived by the service, not stored.
     last_contact_at: datetime | None = None
     days_since_contact: int = 0

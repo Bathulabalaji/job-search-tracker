@@ -5,6 +5,7 @@ from app.models.contact import Contact
 from app.models.daily_log import DailyLog
 from app.models.followup import Followup
 from app.models.interaction import Interaction
+from app.models.job_posting import JobPosting, JobSearchQuery
 from app.models.opportunity import Opportunity
 from app.models.prep_item import PrepItem
 from app.models.provider_ledger import ProviderResourceState, ProviderUsageEvent
@@ -23,6 +24,8 @@ __all__ = [
     "DailyLog",
     "Followup",
     "Interaction",
+    "JobPosting",
+    "JobSearchQuery",
     "Opportunity",
     "PrepItem",
     "ProviderResourceState",

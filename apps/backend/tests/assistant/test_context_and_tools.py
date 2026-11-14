@@ -96,13 +96,13 @@ def test_run_tool_reports_bad_arguments_and_caps_calls(
     db: Session, clock: Clock, settings: Settings
 ) -> None:
     tools = build_read_tools(db, clock, settings, db.info["user_id"])
-    ok, summary, content = _run_tool(
+    ok, summary, content, _ = _run_tool(
         tools["get_opportunity"], "get_opportunity", {"opportunity_id": "x"}, 1
     )
     assert (ok, summary) == (False, "invalid arguments") and "Invalid arguments" in content
-    ok, summary, _ = _run_tool(tools["get_today"], "get_today", {}, 7)
+    ok, summary, _, _ = _run_tool(tools["get_today"], "get_today", {}, 7)
     assert (ok, summary) == (False, "tool limit reached")
-    ok, summary, _ = _run_tool(None, "drop_tables", {}, 1)
+    ok, summary, _, _ = _run_tool(None, "drop_tables", {}, 1)
     assert (ok, summary) == (False, "unknown tool")
 
 

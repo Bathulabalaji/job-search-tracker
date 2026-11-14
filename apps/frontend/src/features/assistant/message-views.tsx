@@ -8,9 +8,10 @@ import {
   XCircle,
 } from "lucide-react"
 
-import type { ChatMessage } from "@/api/chat"
+import type { ChatAttachment, ChatMessage } from "@/api/chat"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { AttachmentList } from "./job-cards"
 import { AssistantMarkdown } from "./markdown"
 import type { LiveTool, TurnError } from "./use-chat-stream"
 
@@ -24,6 +25,11 @@ const TOOL_LABELS: Record<string, string> = {
   list_contacts: "Contacts",
   list_prep_items: "Prep topics",
   list_resumes: "Resumes",
+  get_resume_profile: "Resume profile",
+  search_resume: "Resume search",
+  search_jobs: "Job search",
+  check_job_active: "Check job link",
+  add_job_to_pipeline: "Track job",
   move_opportunity: "Move stage",
   add_followup: "Add follow-up",
   mark_followup: "Update follow-up",
@@ -80,6 +86,7 @@ export function UserBubble({ text }: { text: string }) {
 interface AssistantBubbleProps {
   text: string
   tools: Parameters<typeof ToolChips>[0]["tools"]
+  cards?: ChatAttachment[]
   streaming?: boolean
   status?: ChatMessage["status"]
   error?: TurnError | null
@@ -89,6 +96,7 @@ interface AssistantBubbleProps {
 export function AssistantBubble({
   text,
   tools,
+  cards,
   streaming,
   status,
   error,
@@ -103,6 +111,7 @@ export function AssistantBubble({
       <div className="min-w-0 flex-1 text-sm leading-relaxed">
         <ToolChips tools={tools} />
         {text ? <AssistantMarkdown text={text} /> : null}
+        {cards?.length ? <AttachmentList items={cards} /> : null}
         {streaming && !text && !error ? (
           <p className="flex items-center gap-2 text-muted-foreground">
             <Search className="size-3.5 animate-pulse" aria-hidden /> Thinking…

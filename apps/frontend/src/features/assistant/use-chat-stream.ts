@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useRef, useState } from "react"
 
-import { cancelRun, type PendingAction } from "@/api/chat"
+import { cancelRun, type ChatAttachment, type PendingAction } from "@/api/chat"
 import { ApiError, retryMessage, streamRequest } from "@/api/client"
 import { queryKeys } from "@/api/keys"
 
@@ -26,6 +26,8 @@ export interface LiveTurn {
   userText: string | null
   text: string
   tools: LiveTool[]
+  /** Structured results (job cards) streamed by tools this turn. */
+  cards: ChatAttachment[]
   runId: string | null
   resumingRunId: string | null
   error: TurnError | null
@@ -96,6 +98,12 @@ export function useChatStream() {
               ),
             }))
             break
+          case "cards":
+            if (Array.isArray(data.items)) {
+              const items = data.items as ChatAttachment[]
+              update((t) => ({ ...t, cards: [...t.cards, ...items] }))
+            }
+            break
           case "model_switched":
             update((t) => ({ ...t, model: str(data.model) ?? null }))
             break
@@ -162,6 +170,7 @@ export function useChatStream() {
           userText: text,
           text: "",
           tools: [],
+          cards: [],
           runId: null,
           resumingRunId: null,
           error: null,
@@ -183,6 +192,7 @@ export function useChatStream() {
           userText: null,
           text: "",
           tools: [],
+          cards: [],
           runId,
           resumingRunId: runId,
           error: null,
@@ -210,6 +220,7 @@ export function useChatStream() {
           userText: null,
           text: "",
           tools: [],
+          cards: [],
           runId: null,
           resumingRunId: null,
           error: null,

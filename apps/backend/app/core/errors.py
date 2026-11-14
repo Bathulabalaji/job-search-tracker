@@ -48,3 +48,14 @@ class ChatQuotaError(RateLimitedError):
 
 class DocumentError(AuthError):
     """A resume-file problem the user can act on (too big, scanned PDF, limit reached...)."""
+
+
+class JobSearchError(AuthError):
+    """A job-search problem the user can act on (not configured, already tracked...)."""
+
+
+class JobSearchQuotaError(RateLimitedError):
+    def __init__(self, retry_after_seconds: int, message: str) -> None:
+        super().__init__(retry_after_seconds)
+        self.code = "search_quota"
+        self.message = message

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.assistant.actions import action_payload
 from app.assistant.runner import RESUMABLE_CODES
-from app.assistant.write_tools import build_write_tools
+from app.assistant.write_tools import WRITE_ARGS
 from app.core.clock import Clock
 from app.core.config import Settings
 from app.core.errors import ChatError, ChatQuotaError, NotFoundError, RateLimitedError
@@ -50,6 +50,7 @@ SUGGESTIONS = [
     "How did this week go against my targets?",
     "Summarise my pipeline",
 ]
+JOB_SUGGESTION = "Find backend Python jobs in Bengaluru posted this week"
 
 
 def _title(text: str) -> str:
@@ -86,10 +87,19 @@ class ChatService:
         used, _ = RateLimitRepository(self.session).window_stats(
             self._day_bucket(), self.clock.now() - DAY
         )
+        job_search = self.settings.job_search_enabled
+        searches = None
+        if job_search:
+            searched, _ = RateLimitRepository(self.session).window_stats(
+                f"job-search:{self.user_id}", self.clock.now() - DAY
+            )
+            searches = QuotaRead(limit=self.settings.chat_search_daily_limit, used=searched)
         return ChatConfig(
             enabled=self.settings.llm_enabled,
             messages_per_day=QuotaRead(limit=self.settings.chat_daily_messages, used=used),
-            suggestions=SUGGESTIONS,
+            suggestions=SUGGESTIONS[:3] + [JOB_SUGGESTION] if job_search else SUGGESTIONS,
+            job_search=job_search,
+            searches_per_day=searches,
         )
 
     # ---- conversations --------------------------------------------------------------------
@@ -288,14 +298,12 @@ class ChatService:
             raise ChatError(
                 "invalid_edits", f"These fields can't be edited: {', '.join(unknown)}", 422
             )
-        tool = build_write_tools(self.session, self.clock, self.settings, self.user_id).get(
-            action.tool_name
-        )
-        if tool is None:
+        schema = WRITE_ARGS.get(action.tool_name)
+        if schema is None:
             raise ChatError("invalid_edits", "This change can no longer be edited.", 422)
         merged = {**action.args, **{k: (v if v != "" else None) for k, v in edits.items()}}
         try:
-            parsed = tool.args.model_validate(merged)
+            parsed = schema.model_validate(merged)
         except ValidationError as exc:
             problems = "; ".join(
                 f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()[:3]

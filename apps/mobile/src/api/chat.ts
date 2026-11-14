@@ -8,7 +8,29 @@ export interface ChatConfig {
   messages_per_day: { limit: number; used: number };
   max_message_chars: number;
   suggestions: string[];
+  job_search?: boolean;
+  searches_per_day?: { limit: number; used: number } | null;
 }
+
+/** A job posting found by the assistant's search_jobs tool, shown as a card. */
+export interface JobCardData {
+  type: "job";
+  id: number;
+  title: string;
+  company: string;
+  location: string | null;
+  work_mode: string | null;
+  source_site: string;
+  provider: string;
+  apply_url: string;
+  posted_at: string | null;
+  salary_text: string | null;
+  active_status: string;
+  active_checked_at: string | null;
+  tracked_opportunity_id: number | null;
+}
+
+export type ChatAttachment = JobCardData;
 
 export interface ChatConversation {
   id: number;
@@ -30,6 +52,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   tool_calls: ChatToolCall[] | null;
+  attachments?: ChatAttachment[] | null;
   status: "complete" | "awaiting" | "failed" | "cancelled";
   error_code: string | null;
   model: string | null;

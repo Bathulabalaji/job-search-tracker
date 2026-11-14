@@ -1,0 +1,8 @@
+{
+  "query": "backend python job opening",
+  "results": [
+    {"title": "Job Application for Backend Engineer at Postman", "url": "https://job-boards.greenhouse.io/postman/jobs/7012345", "content": "Postman is hiring a Backend Engineer in Bengaluru (hybrid).", "score": 0.82},
+    {"title": "Razorpay - Senior Software Engineer, Payments", "url": "https://jobs.lever.co/razorpay/9f1c2d3e-aaaa-bbbb", "content": "Payments platform team.", "score": 0.77},
+    {"title": "Careers at Acme", "url": "https://jobs.lever.co/", "content": "All jobs", "score": 0.4}
+  ]
+}

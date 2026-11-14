@@ -10,6 +10,7 @@ from app.api import (
     followups,
     health,
     interactions,
+    jobs,
     opportunities,
     prep_items,
     resumes,
@@ -38,5 +39,6 @@ for module in (
     analytics,
     resumes,
     chat,
+    jobs,
 ):
     api_router.include_router(module.router, dependencies=_protected)

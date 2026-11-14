@@ -1,6 +1,17 @@
 from datetime import date, datetime
 
-from sqlalchemy import ARRAY, CheckConstraint, Date, DateTime, Index, String, Text, func
+from sqlalchemy import (
+    ARRAY,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -15,6 +26,14 @@ class Opportunity(OwnedMixin, Base):
         CheckConstraint("priority BETWEEN 1 AND 3", name="priority_range"),
         CheckConstraint("fit_score IS NULL OR fit_score BETWEEN 0 AND 100", name="fit_score_range"),
         Index("ix_opportunities_stage", "stage"),
+        # Tracking the same posting twice is refused (409 already_tracked).
+        Index(
+            "uq_opportunities_user_job_posting",
+            "user_id",
+            "job_posting_id",
+            unique=True,
+            postgresql_where=text("job_posting_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -34,6 +53,10 @@ class Opportunity(OwnedMixin, Base):
     expected_ctc_note: Mapped[str | None] = mapped_column(String(500))
     next_action: Mapped[str | None] = mapped_column(String(500))
     next_action_due: Mapped[date | None] = mapped_column(Date)
+    # Set when the opportunity was tracked from a job search result.
+    job_posting_id: Mapped[int | None] = mapped_column(
+        ForeignKey("job_postings.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

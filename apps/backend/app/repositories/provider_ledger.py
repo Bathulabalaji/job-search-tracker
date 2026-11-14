@@ -57,6 +57,12 @@ class ProviderLedgerRepository:
         self.session.add(event)
         self.session.flush()
 
+    def count_events(self, resource: str, since: datetime) -> int:
+        stmt = select(func.count()).where(
+            ProviderUsageEvent.resource == resource, ProviderUsageEvent.created_at >= since
+        )
+        return int(self.session.execute(stmt).scalar_one())
+
     def usage_summary(self, since: datetime) -> list[UsageRow]:
         stmt = (
             select(

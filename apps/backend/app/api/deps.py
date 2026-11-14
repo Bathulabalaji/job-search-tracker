@@ -19,6 +19,9 @@ from app.assistant.runner import SessionScope, TurnRunner
 from app.core.clock import Clock
 from app.core.config import Settings
 from app.core.errors import AuthError
+from app.jobsearch import build_active_checker, build_job_search_providers
+from app.jobsearch.active_check import ActiveChecker
+from app.jobsearch.base import JobSearchProvider
 from app.services.analytics import AnalyticsService
 from app.services.chat import ChatService
 from app.services.contact import ContactService
@@ -26,6 +29,7 @@ from app.services.daily_log import DailyLogService
 from app.services.dashboard import DashboardService
 from app.services.followup import FollowupService
 from app.services.interaction import InteractionService
+from app.services.job_search import JobSearchService
 from app.services.opportunity import OpportunityService
 from app.services.prep_item import PrepItemService
 from app.services.resume import ResumeService
@@ -108,6 +112,35 @@ def get_chat_service(
     return ChatService(db, clock, settings, user.id, checkpointer)
 
 
+# ---- job search (Phase 3) ---------------------------------------------------------------------
+
+
+def get_job_search_providers(settings: SettingsDep, clock: ClockDep) -> list[JobSearchProvider]:
+    return build_job_search_providers(settings, clock)
+
+
+def get_active_checker(settings: SettingsDep) -> ActiveChecker | None:
+    return build_active_checker(settings)
+
+
+JobSearchProvidersDep = Annotated[list[JobSearchProvider], Depends(get_job_search_providers)]
+ActiveCheckerDep = Annotated[ActiveChecker | None, Depends(get_active_checker)]
+
+
+def get_job_search_service(
+    db: DbSession,
+    clock: ClockDep,
+    settings: SettingsDep,
+    user: CurrentUser,
+    providers: JobSearchProvidersDep,
+    checker: ActiveCheckerDep,
+) -> JobSearchService:
+    return JobSearchService(db, clock, settings, user.id, providers, checker)
+
+
+JobSearchServiceDep = Annotated[JobSearchService, Depends(get_job_search_service)]
+
+
 def get_turn_runner(
     settings: SettingsDep,
     clock: ClockDep,
@@ -115,8 +148,12 @@ def get_turn_runner(
     providers: LLMProvidersDep,
     checkpointer: CheckpointerDep,
     session_scope: Annotated[SessionScope, Depends(get_session_scope)],
+    job_providers: JobSearchProvidersDep,
+    job_checker: ActiveCheckerDep,
 ) -> TurnRunner:
     return TurnRunner(
+        job_providers=job_providers,
+        job_checker=job_checker,
         session_scope=session_scope,
         settings=settings,
         clock=clock,

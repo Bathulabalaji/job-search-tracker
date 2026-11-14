@@ -1,4 +1,4 @@
-import { ArrowLeft, MessageSquarePlus, Pencil, Trash2, TriangleAlert } from "lucide-react"
+import { ArrowLeft, MessageSquarePlus, Pencil, Sparkles, Trash2, TriangleAlert } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -9,6 +9,7 @@ import { STAGES, type Opportunity, type Stage } from "@/api/types"
 import { EmptyState } from "@/components/common/empty-state"
 import { ErrorState } from "@/components/common/error-state"
 import { PriorityBadge } from "@/components/common/priority-badge"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -139,6 +140,11 @@ function Detail({ opportunity }: { opportunity: Opportunity }) {
               </SelectContent>
             </Select>
             <PriorityBadge priority={opportunity.priority} />
+            {opportunity.job_posting_id ? (
+              <Badge variant="outline" className="gap-1">
+                <Sparkles aria-hidden /> Found via job search
+              </Badge>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

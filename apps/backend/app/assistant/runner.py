@@ -17,7 +17,7 @@ import logging
 import queue
 import threading
 import uuid
-from collections.abc import Callable, Generator, Iterator, Mapping
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, closing
 from datetime import timedelta
 from typing import Any
@@ -38,6 +38,8 @@ from app.assistant.tools import build_read_tools
 from app.assistant.write_tools import build_write_tools
 from app.core.clock import Clock
 from app.core.config import Settings
+from app.jobsearch.active_check import ActiveChecker
+from app.jobsearch.base import JobSearchProvider
 from app.llm import build_llm_gateway
 from app.llm.catalog import Provider
 from app.llm.errors import LLMError
@@ -45,6 +47,7 @@ from app.llm.providers.base import ChatProvider
 from app.models.chat import ChatMessage, ChatRun
 from app.repositories.chat import ConversationRepository, MessageRepository, RunRepository
 from app.repositories.chat_action import PendingActionRepository
+from app.services.job_search import JobSearchService
 
 logger = logging.getLogger("app.assistant")
 
@@ -79,7 +82,11 @@ class TurnRunner:
         checkpointer: BaseCheckpointSaver[str],
         user_id: int,
         first_name: str,
+        job_providers: Sequence[JobSearchProvider] = (),
+        job_checker: ActiveChecker | None = None,
     ) -> None:
+        self.job_providers = list(job_providers)
+        self.job_checker = job_checker
         self.session_scope = session_scope
         self.settings = settings
         self.clock = clock
@@ -112,6 +119,7 @@ class _Turn:
         self.seq = 0
         self.streamed = ""
         self.tool_log: list[dict[str, Any]] = []
+        self.attachments: list[dict[str, Any]] = []
         self.changed: set[str] = set()
         self.local_cancel = threading.Event()
         self.worker: threading.Thread | None = None
@@ -163,6 +171,14 @@ class _Turn:
         try:
             context = ContextBuilder(self.messages, gateway).build(conversation, user_message.seq)
             self.session.commit()  # keeps a freshly folded summary even if the run fails
+            jobs = JobSearchService(
+                self.session,
+                owner.clock,
+                settings,
+                owner.user_id,
+                owner.job_providers,
+                owner.job_checker,
+            )
             deps = AgentDeps(
                 gateway=gateway,
                 tools=build_read_tools(
@@ -171,9 +187,11 @@ class _Turn:
                     settings,
                     owner.user_id,
                     timeout_seconds=settings.chat_tool_timeout_seconds,
+                    gateway=gateway,
+                    jobs=jobs,
                 ),
                 write_tools=(
-                    build_write_tools(self.session, owner.clock, settings, owner.user_id)
+                    build_write_tools(self.session, owner.clock, settings, owner.user_id, jobs=jobs)
                     if settings.chat_writes_enabled
                     else {}
                 ),
@@ -190,6 +208,7 @@ class _Turn:
                     first_name=owner.first_name,
                     summary=context.summary,
                     writes_enabled=settings.chat_writes_enabled,
+                    job_search_enabled=jobs.enabled,
                 ),
                 context=context,
                 run_id=str(run.id),
@@ -398,6 +417,8 @@ class _Turn:
             # Text the model wrote before looking something up becomes its own paragraph.
             self.streamed += "\n\n"
             yield self.event("token", {"delta": "\n\n"})
+        elif name == "cards":
+            self.attachments.extend(item.get("items") or [])
         elif name == "tool_end":
             self.tool_log.append({k: item.get(k) for k in ("name", "ok", "summary")})
             self.changed.update(str(c) for c in item.get("changed") or [])
@@ -440,6 +461,7 @@ class _Turn:
         if tokens != (None, None):
             message.prompt_tokens, message.completion_tokens = tokens
         message.tool_calls = _dedupe(tool_log) or None
+        message.attachments = _merge_attachments(message.attachments, self.attachments) or None
         run.status = status
         run.error_code = error_code
         run.model_switches += switches
@@ -461,6 +483,23 @@ class _Turn:
 
 def _switches(deps: AgentDeps | None) -> int:
     return deps.budget.switches if deps is not None else 0
+
+
+def _merge_attachments(
+    existing: list[dict[str, Any]] | None, new: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """A reply continued after a confirmation keeps its earlier cards; a card seen again (the
+    same job re-checked) replaces the older copy in place."""
+    merged = list(existing or [])
+    index = {(a.get("type"), a.get("id")): i for i, a in enumerate(merged)}
+    for card in new:
+        key = (card.get("type"), card.get("id"))
+        if key in index:
+            merged[index[key]] = card
+        else:
+            index[key] = len(merged)
+            merged.append(card)
+    return merged
 
 
 def _dedupe(log: list[dict[str, Any]]) -> list[dict[str, Any]]:

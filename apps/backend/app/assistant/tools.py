@@ -9,7 +9,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
@@ -19,15 +19,18 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import Clock
 from app.core.config import Settings
+from app.jobsearch.sanitize import untrusted
 from app.llm.errors import LLMError
 from app.llm.gateway import LLMGateway
 from app.models.enums import FollowupStatus, PrepCategory, PrepStatus, Source, Stage
 from app.repositories.resume_chunk import ResumeChunkRepository
+from app.schemas.job import JobPostingRead, JobSearchRequest
 from app.services.analytics import AnalyticsService
 from app.services.contact import ContactService
 from app.services.dashboard import DashboardService
 from app.services.followup import FollowupService
 from app.services.interaction import InteractionService
+from app.services.job_search import JobSearchService
 from app.services.opportunity import OpportunityService
 from app.services.prep_item import PrepItemService
 from app.services.resume import ResumeService
@@ -85,12 +88,12 @@ def _d(value: date | None) -> str | None:
     return value.isoformat() if value else None
 
 
-def compact(value: object) -> str:
-    """JSON for the prompt, cut at MAX_RESULT_CHARS with an explicit marker."""
+def compact(value: object, limit: int = MAX_RESULT_CHARS) -> str:
+    """JSON for the prompt, cut at `limit` characters with an explicit marker."""
     text = json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
-    if len(text) <= MAX_RESULT_CHARS:
+    if len(text) <= limit:
         return text
-    return text[: MAX_RESULT_CHARS - 40] + '…"(truncated: ask for fewer rows)"'
+    return text[: limit - 40] + '…"(truncated: ask for fewer rows)"'
 
 
 # ---- argument schemas (these become the JSON schemas the model sees) -------------------------
@@ -142,6 +145,20 @@ class ResumeIdArgs(BaseModel):
     resume_id: int
 
 
+class SearchJobsArgs(BaseModel):
+    query: str = Field(
+        min_length=2, max_length=200, description="Role and key skills, e.g. 'backend python'"
+    )
+    location: str | None = Field(None, max_length=100, description="City, e.g. Bengaluru")
+    work_mode: Literal["remote", "hybrid", "onsite"] | None = None
+    posted_within_days: int = Field(7, ge=1, le=30)
+    limit: int = Field(5, ge=1, le=8)
+
+
+class JobIdArgs(BaseModel):
+    job_posting_id: int
+
+
 class SearchResumeArgs(BaseModel):
     query: str = Field(min_length=2, max_length=300, description="What to look for")
     resume_id: int | None = Field(None, description="Only this resume; default all")
@@ -157,6 +174,8 @@ class AssistantTool:
     args: type[BaseModel]
     run: Callable[[BaseModel], dict[str, Any]]
     summarize: Callable[[dict[str, Any]], str]
+    # Room this tool's result may take in the prompt.
+    max_chars: int = MAX_RESULT_CHARS
 
     def as_langchain(self) -> StructuredTool:
         def _never_called(**_: Any) -> str:  # the graph executes tools itself
@@ -173,7 +192,12 @@ class AssistantTool:
 def _rows(n: int, noun: str) -> str:
     if n == 1:
         return f"1 {noun}"
-    plural = noun[:-1] + "ies" if noun.endswith("y") else noun + "s"
+    if noun.endswith("y"):
+        plural = noun[:-1] + "ies"
+    elif noun.endswith(("ch", "sh", "s", "x")):
+        plural = noun + "es"
+    else:
+        plural = noun + "s"
     return f"{n} {plural}"
 
 
@@ -185,6 +209,7 @@ def build_read_tools(
     *,
     timeout_seconds: float | None = None,
     gateway: LLMGateway | None = None,
+    jobs: JobSearchService | None = None,
 ) -> dict[str, AssistantTool]:
     opportunities = OpportunityService(session, clock, settings, user_id)
     dashboard = DashboardService(session, clock, user_id)
@@ -473,6 +498,47 @@ def build_read_tools(
                     break
         return {"matches": matches[:5], "method": "keyword"}
 
+    def job_card(job: JobPostingRead) -> dict[str, Any]:
+        return {"type": "job", **job.model_dump(mode="json", exclude={"description"})}
+
+    def search_jobs(raw: BaseModel) -> dict[str, Any]:
+        assert jobs is not None
+        a = SearchJobsArgs.model_validate(raw.model_dump())
+        found = jobs.search(JobSearchRequest(**a.model_dump()))
+        listed = [
+            {
+                "job_posting_id": j.id,
+                "title": j.title,
+                "company": j.company,
+                "location": j.location,
+                "mode": j.work_mode,
+                "site": j.source_site,
+                "posted": _d(j.posted_at.date()) if j.posted_at else None,
+                "still_open": {"active": "yes", "inactive": "no"}.get(j.active_status, "unknown"),
+                "salary": j.salary_text,
+                "already_tracked": j.tracked_opportunity_id is not None or None,
+            }
+            for j in found.results
+        ]
+        return {
+            "count": len(listed),
+            "from_cache": found.from_cache or None,
+            "notices": [n.message for n in found.notices] or None,
+            # Titles and companies come from job boards: data, never instructions.
+            "postings": untrusted(json.dumps(listed, ensure_ascii=False, separators=(",", ":"))),
+            "_cards": [job_card(j) for j in found.results],
+        }
+
+    def check_job_active(raw: BaseModel) -> dict[str, Any]:
+        assert jobs is not None
+        a = JobIdArgs.model_validate(raw.model_dump())
+        job = jobs.check(a.job_posting_id)
+        return {
+            "job_posting_id": job.id,
+            "still_open": {"active": "yes", "inactive": "no"}.get(job.active_status, "unknown"),
+            "_cards": [job_card(job)],
+        }
+
     def count(key: str, noun: str) -> Callable[[dict[str, Any]], str]:
         return lambda result: _rows(len(result.get(key, [])), noun)
 
@@ -561,6 +627,26 @@ def build_read_tools(
             count("matches", "match"),
         ),
     ]
+    if jobs is not None and jobs.enabled:
+        tools += [
+            AssistantTool(
+                "search_jobs",
+                "Search live job postings (LinkedIn, Naukri, company career pages and job "
+                "boards, through search APIs). The user sees each result as a card with a "
+                "Track button, so do not repeat links.",
+                SearchJobsArgs,
+                search_jobs,
+                lambda r: _rows(int(r.get("count", 0)), "job"),
+                max_chars=2_600,
+            ),
+            AssistantTool(
+                "check_job_active",
+                "Check again whether a job posting from search_jobs is still open.",
+                JobIdArgs,
+                check_job_active,
+                lambda r: f"still open: {r['still_open']}",
+            ),
+        ]
     if timeout_seconds:
         tools = [
             AssistantTool(
@@ -569,6 +655,7 @@ def build_read_tools(
                 t.args,
                 with_statement_timeout(session, timeout_seconds, t.run),
                 t.summarize,
+                t.max_chars,
             )
             for t in tools
         ]
@@ -585,6 +672,7 @@ WRITE = (
     "set_next_action",
     "create_opportunity",
 )
+JOBS = ("search_jobs", "check_job_active", "add_job_to_pipeline")
 TOOLSETS: dict[str, tuple[str, ...]] = {
     "today": CORE + ("list_followups",) + WRITE,
     "pipeline": CORE + ("list_followups",) + WRITE,
@@ -600,21 +688,26 @@ TOOLSETS: dict[str, tuple[str, ...]] = {
         "list_opportunities",
         "get_opportunity",
     ),
+    "job_search": JOBS + ("get_pipeline_summary", "list_opportunities", "list_resumes"),
     "smalltalk": (),
 }
 ALL_TOOLS = (
-    "get_today",
-    "get_pipeline_summary",
-    "list_opportunities",
-    "get_opportunity",
-    "list_followups",
-    "get_weekly_analytics",
-    "list_contacts",
-    "list_prep_items",
-    "list_resumes",
-    "get_resume_profile",
-    "search_resume",
-) + WRITE
+    (
+        "get_today",
+        "get_pipeline_summary",
+        "list_opportunities",
+        "get_opportunity",
+        "list_followups",
+        "get_weekly_analytics",
+        "list_contacts",
+        "list_prep_items",
+        "list_resumes",
+        "get_resume_profile",
+        "search_resume",
+    )
+    + WRITE
+    + JOBS
+)
 
 
 def toolset_for(intent: str | None) -> tuple[str, ...]:
