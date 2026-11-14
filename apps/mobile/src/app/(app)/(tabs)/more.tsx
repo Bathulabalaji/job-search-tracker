@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
 
+import { useChatConfig } from "@/api/chat";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Screen, ScreenHeader } from "@/components/ui/screen";
@@ -55,11 +56,16 @@ export default function MoreScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const user = useUser();
+  const config = useChatConfig();
+  // Hidden when the server has no job search keys or the user turned the assistant off.
+  const items = ITEMS.filter(
+    (item) => item.href !== "/recommendations" || config.data?.recommendations !== false,
+  );
   return (
     <Screen>
       <ScreenHeader title="More" subtitle={user.email} />
       <View style={{ gap: 10 }}>
-        {ITEMS.map((item) => (
+        {items.map((item) => (
           <Pressable
             key={item.href}
             accessibilityRole="button"

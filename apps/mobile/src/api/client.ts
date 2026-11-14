@@ -88,6 +88,9 @@ const PUBLIC_AUTH_PATHS = [
 /** Free hosting can take ~50s to wake a sleeping server, so be patient before giving up. */
 const TIMEOUT_MS = 60_000;
 
+/** A file upload may start while the server is still waking, then has to send the file. */
+const UPLOAD_TIMEOUT_MS = 150_000;
+
 interface RequestOptions {
   method?: string;
   body?: unknown;
@@ -197,7 +200,7 @@ export async function upload<T>(path: string, file: UploadFile): Promise<T> {
   } as unknown as Blob);
   const headers = baseHeaders();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {

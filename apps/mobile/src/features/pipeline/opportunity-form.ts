@@ -9,16 +9,14 @@ import {
   type OpportunityUpdate,
 } from "@/api/types"
 import { STAGE_LABELS, titleCase } from "@/lib/format"
+import { isOptionalWebUrl, normalizeWebUrl } from "@/lib/links"
 
 const NONE = "none"
 
 const optionalUrl = z
   .string()
   .max(1000)
-  .refine(
-    (value) => value === "" || /^https?:\/\/\S+$/i.test(value),
-    "Must start with http:// or https://",
-  )
+  .refine(isOptionalWebUrl, "Enter a web address, like company.com/jobs/123")
 
 export const opportunitySchema = z.object({
   company: z.string().trim().min(1, "Company is required").max(200),
@@ -99,7 +97,7 @@ export function toCreatePayload(v: OpportunityFormValues): OpportunityCreate {
     priority: Number(v.priority),
     fit_score: v.fit_score === "" ? null : Number(v.fit_score),
     jd_text: orNull(v.jd_text),
-    jd_url: orNull(v.jd_url),
+    jd_url: normalizeWebUrl(v.jd_url),
     expected_ctc_note: orNull(v.expected_ctc_note),
     next_action: orNull(v.next_action),
     next_action_due: orNull(v.next_action_due),

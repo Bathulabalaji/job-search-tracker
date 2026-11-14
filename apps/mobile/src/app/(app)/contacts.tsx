@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { Linking, View } from "react-native"
 
+import { openWebLink } from "@/lib/links"
+
 import { useContactsList } from "@/api/contacts"
 import { useResumes } from "@/api/resumes"
 import { CONTACT_ROLES, type Contact, type ContactRole, type Resume } from "@/api/types"
@@ -70,7 +72,7 @@ function ContactsTab() {
           <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
             {c.phone ? <Button label="Call" icon="call" size="sm" variant="secondary" fullWidth={false} onPress={() => void Linking.openURL(`tel:${c.phone}`)} /> : null}
             {c.email ? <Button label="Email" icon="mail" size="sm" variant="secondary" fullWidth={false} onPress={() => void Linking.openURL(`mailto:${c.email}`)} /> : null}
-            {c.linkedin_url ? <Button label="LinkedIn" icon="logo-linkedin" size="sm" variant="secondary" fullWidth={false} onPress={() => void Linking.openURL(c.linkedin_url ?? "")} /> : null}
+            {c.linkedin_url ? <Button label="LinkedIn" icon="logo-linkedin" size="sm" variant="secondary" fullWidth={false} onPress={() => void openWebLink(c.linkedin_url)} /> : null}
           </View>
         </Card>
       ))}

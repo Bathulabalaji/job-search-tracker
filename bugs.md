@@ -63,6 +63,8 @@ or a real gap, with a workaround. **Low** is a data-quality or polish issue.
 - **Next step:** build a new APK, reproduce, and read the new error text and Render's logs.
 - **Suggested fix:** give uploads a longer timeout (90–120 s) or wake the API first with a call
   to `/health`.
+- **Mobile fix (2026-11-15):** uploads now wait 150 s (`UPLOAD_TIMEOUT_MS`). Still to confirm on a new APK; if it
+  still fails, the error text now says why.
 
 ---
 
@@ -108,6 +110,9 @@ or a real gap, with a workaround. **Low** is a data-quality or polish issue.
     dead link today, not script execution, but it relies on that one safeguard.
 - **Suggested fix:** an `HttpUrl`-style validator on `jd_url` and `linkedin_url` in the API
   schemas, the assistant's argument schemas, and both contact forms.
+- **Mobile fix (2026-11-15):** the contact, outreach-profile and opportunity forms accept `linkedin.com/in/x`,
+  store it as `https://…`, and reject other schemes; the LinkedIn and job-posting buttons check the link before
+  opening it and say when it can't be opened. The API half is still open.
 
 ### BUG-08 — Company and role can be only spaces (Low)
 
@@ -227,6 +232,7 @@ or a real gap, with a workaround. **Low** is a data-quality or polish issue.
 - **Steps:** run the web app against a server with no search keys.
 - **Expected:** the nav item is hidden, as Account hides the assistant card.
 - **Actual:** it shows; "Find new jobs" then fails with "Job search isn't set up".
+- **Mobile fix (2026-11-15):** the More tab hides "Jobs for you" when the server reports it unavailable. Web still open.
 
 ---
 

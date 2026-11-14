@@ -31,6 +31,7 @@ import { LogInteractionSheet } from "@/features/detail/log-interaction-sheet"
 import { STAGE_OPTIONS } from "@/features/pipeline/options"
 import { formatDate, formatDateTime, titleCase } from "@/lib/format"
 import { haptics } from "@/lib/haptics"
+import { openWebLink } from "@/lib/links"
 import { toast } from "@/lib/toast-bus"
 
 type Tab = "overview" | "timeline" | "followups" | "contacts"
@@ -260,7 +261,7 @@ function Overview({ o }: { o: NonNullable<ReturnType<typeof useOpportunity>["dat
           label="Open job posting"
           icon="open-outline"
           variant="secondary"
-          onPress={() => void Linking.openURL(o.jd_url ?? "")}
+          onPress={() => void openWebLink(o.jd_url)}
         />
       ) : null}
       {o.jd_text ? (
@@ -426,6 +427,9 @@ function Contacts({
               ) : null}
               {c.email ? (
                 <Button label="Email" icon="mail" size="sm" variant="secondary" fullWidth={false} onPress={() => void Linking.openURL(`mailto:${c.email}`)} />
+              ) : null}
+              {c.linkedin_url ? (
+                <Button label="LinkedIn" icon="logo-linkedin" size="sm" variant="secondary" fullWidth={false} onPress={() => void openWebLink(c.linkedin_url)} />
               ) : null}
             </View>
           </Card>

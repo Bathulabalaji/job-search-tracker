@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { FormText } from "@/components/ui/form";
 import { Sheet } from "@/components/ui/sheet";
 import { Text } from "@/components/ui/text";
+import { isOptionalWebUrl, normalizeWebUrl, WEB_URL_HINT } from "@/lib/links";
 import { toast } from "@/lib/toast-bus";
 import { useTheme } from "@/theme/theme";
 
@@ -26,13 +27,7 @@ const schema = z.object({
     .refine((v) => /^\S+@\S+\.\S{2,}$/.test(v), "Enter a valid email address"),
   headline: z.string().max(300),
   phone: z.string().max(50),
-  linkedin_url: z
-    .string()
-    .max(500)
-    .refine(
-      (v) => v === "" || /^https?:\/\/\S+$/i.test(v),
-      "Must start with http:// or https://",
-    ),
+  linkedin_url: z.string().max(500).refine(isOptionalWebUrl, WEB_URL_HINT),
   location: z.string().max(200),
   notice_period: z.string().max(100),
   current_ctc: z.string().max(100),
@@ -101,7 +96,7 @@ function Body({
         from_email: v.from_email,
         headline: v.headline,
         phone: v.phone,
-        linkedin_url: v.linkedin_url,
+        linkedin_url: normalizeWebUrl(v.linkedin_url) ?? "",
         location: v.location,
         notice_period: v.notice_period,
         current_ctc: v.current_ctc,

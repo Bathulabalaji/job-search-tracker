@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { FormSelect, FormText } from "@/components/ui/form"
 import { Sheet } from "@/components/ui/sheet"
 import { titleCase } from "@/lib/format"
+import { isOptionalWebUrl, normalizeWebUrl, WEB_URL_HINT } from "@/lib/links"
 import { toast } from "@/lib/toast-bus"
 
 const schema = z.object({
@@ -22,7 +23,7 @@ const schema = z.object({
     .max(254)
     .refine((v) => v === "" || /^\S+@\S+\.\S+$/.test(v), "Enter a valid email"),
   phone: z.string().max(50),
-  linkedin_url: z.string().max(1000),
+  linkedin_url: z.string().max(1000).refine(isOptionalWebUrl, WEB_URL_HINT),
   notes: z.string(),
 })
 type Values = z.infer<typeof schema>
@@ -78,7 +79,7 @@ function Body({
       company: orNull(v.company),
       email: orNull(v.email),
       phone: orNull(v.phone),
-      linkedin_url: orNull(v.linkedin_url),
+      linkedin_url: normalizeWebUrl(v.linkedin_url),
       notes: orNull(v.notes),
     }
     try {
