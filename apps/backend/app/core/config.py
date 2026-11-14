@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     )
     cors_origins: list[str] = [
         "http://localhost:5173",
-        "https://job-search-tracker-blond.vercel.app",
+        "https://careercommandcenter.vercel.app",
     ]
 
     # Timezone used to decide what "today" and "working day" mean.
