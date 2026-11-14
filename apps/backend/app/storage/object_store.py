@@ -2,6 +2,8 @@
 
 import logging
 import re
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Protocol
@@ -19,12 +21,22 @@ class StorageDisabled(AuthError):
         super().__init__("storage_disabled", message, 503)
 
 
+@dataclass(frozen=True)
+class StoredObject:
+    key: str
+    modified: datetime
+
+
 class ObjectStore(Protocol):
     def put(self, key: str, data: bytes, content_type: str) -> None: ...
 
     def get(self, key: str) -> bytes: ...
 
     def delete(self, key: str) -> None: ...
+
+    def list_objects(self, prefix: str) -> list[StoredObject]:
+        """Every object whose key starts with `prefix` (used to find orphans)."""
+        ...
 
     def presigned_get_url(self, key: str, *, filename: str, expires_seconds: int) -> str | None:
         """A direct download link, or None when this backend cannot make one (the API then
@@ -65,6 +77,15 @@ class S3ObjectStore:
     def delete(self, key: str) -> None:
         _check_key(key)
         self._client.delete_object(Bucket=self.bucket, Key=key)
+
+    def list_objects(self, prefix: str) -> list[StoredObject]:
+        _check_key(prefix)
+        found: list[StoredObject] = []
+        paginator = self._client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            for item in page.get("Contents", []):
+                found.append(StoredObject(item["Key"], item["LastModified"]))
+        return found
 
     def presigned_get_url(self, key: str, *, filename: str, expires_seconds: int) -> str | None:
         _check_key(key)
@@ -130,6 +151,18 @@ class LocalObjectStore:
         if path.exists():
             path.unlink()
 
+    def list_objects(self, prefix: str) -> list[StoredObject]:
+        _check_key(prefix)
+        found: list[StoredObject] = []
+        for path in self.root.rglob("*"):
+            if path.is_file():
+                key = path.relative_to(self.root).as_posix()
+                if key.startswith(prefix):
+                    found.append(
+                        StoredObject(key, datetime.fromtimestamp(path.stat().st_mtime, UTC))
+                    )
+        return found
+
     def presigned_get_url(self, key: str, *, filename: str, expires_seconds: int) -> str | None:
         return None  # the API serves the bytes itself
 
@@ -139,10 +172,19 @@ class InMemoryObjectStore:
 
     def __init__(self) -> None:
         self.objects: dict[str, tuple[bytes, str]] = {}
+        self.modified: dict[str, datetime] = {}
 
     def put(self, key: str, data: bytes, content_type: str) -> None:
         _check_key(key)
         self.objects[key] = (data, content_type)
+        self.modified[key] = datetime.now(UTC)
+
+    def list_objects(self, prefix: str) -> list[StoredObject]:
+        return [
+            StoredObject(key, self.modified.get(key, datetime.now(UTC)))
+            for key in self.objects
+            if key.startswith(prefix)
+        ]
 
     def get(self, key: str) -> bytes:
         return self.objects[key][0]
@@ -163,6 +205,9 @@ class DisabledObjectStore:
 
     def delete(self, key: str) -> None:
         logger.warning("object_store_disabled_delete", extra={"key": key})
+
+    def list_objects(self, prefix: str) -> list[StoredObject]:
+        return []
 
     def presigned_get_url(self, key: str, *, filename: str, expires_seconds: int) -> str | None:
         return None

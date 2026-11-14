@@ -13,6 +13,7 @@ class ProviderUsageEvent(Base):
     __table_args__ = (
         Index("ix_provider_usage_events_resource_created", "resource", "created_at"),
         Index("ix_provider_usage_events_user_created", "user_id", "created_at"),
+        Index("ix_provider_usage_events_created", "created_at"),  # retention sweeps
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -111,6 +111,19 @@ class QuotaRead(BaseModel):
     used: int
 
 
+class QuotaUsageRead(BaseModel):
+    name: str  # messages | searches | matches | recommendations | reindex
+    label: str
+    limit: int
+    used: int
+    resets_at: datetime | None
+
+
+class PreferencesUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    assistant_opt_out: bool
+
+
 class ChatConfig(BaseModel):
     enabled: bool
     messages_per_day: QuotaRead
@@ -118,3 +131,6 @@ class ChatConfig(BaseModel):
     suggestions: list[str]
     job_search: bool = False
     searches_per_day: QuotaRead | None = None
+    assistant_opt_out: bool = False
+    matching: bool = False  # resume-vs-job scoring is available
+    recommendations: bool = False  # "Jobs for you" is available

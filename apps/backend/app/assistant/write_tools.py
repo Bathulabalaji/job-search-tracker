@@ -138,6 +138,11 @@ class SetNextActionArgs(BaseModel):
     next_action_due: date | None = None
 
 
+class SetFitScoreArgs(BaseModel):
+    opportunity_id: int
+    fit_score: int = Field(ge=0, le=100)
+
+
 class CreateOpportunityArgs(BaseModel):
     company: str = Field(min_length=1, max_length=200)
     role: str = Field(min_length=1, max_length=200)
@@ -318,6 +323,26 @@ def build_write_tools(
             changed=("opportunities", "dashboard"),
         )
 
+    # -- fit score ----------------------------------------------------------------------------
+    def set_fit_score_preview(raw: BaseModel) -> ActionPreview:
+        a = SetFitScoreArgs.model_validate(raw.model_dump())
+        before = opportunities.get(a.opportunity_id).fit_score
+        was = f" (now {before})" if before is not None else ""
+        return ActionPreview(
+            title=f"Set fit score for {name_of(a.opportunity_id)}",
+            summary=f"{a.fit_score}/100{was}",
+            fields=[field("fit_score", "Fit score (0-100)", a.fit_score, type="number")],
+        )
+
+    def set_fit_score_execute(raw: BaseModel) -> ActionResult:
+        a = SetFitScoreArgs.model_validate(raw.model_dump())
+        o = opportunities.update(a.opportunity_id, OpportunityUpdate(fit_score=a.fit_score))
+        return ActionResult(
+            summary=f"Fit score for {o.company} — {o.role} set to {a.fit_score}",
+            data={"opportunity_id": o.id},
+            changed=("opportunities",),
+        )
+
     # -- create -------------------------------------------------------------------------------
     def create_preview(raw: BaseModel) -> ActionPreview:
         a = CreateOpportunityArgs.model_validate(raw.model_dump())
@@ -417,6 +442,14 @@ def build_write_tools(
             set_next_action_execute,
         ),
         WriteTool(
+            "set_fit_score",
+            "Save a 0-100 fit score on an opportunity, for example the score from "
+            "which_resume_fits.",
+            SetFitScoreArgs,
+            set_fit_score_preview,
+            set_fit_score_execute,
+        ),
+        WriteTool(
             "create_opportunity",
             "Add a new opportunity to the pipeline.",
             CreateOpportunityArgs,
@@ -445,6 +478,7 @@ WRITE_ARGS: dict[str, type[BaseModel]] = {
     "mark_followup": MarkFollowupArgs,
     "log_interaction": LogInteractionArgs,
     "set_next_action": SetNextActionArgs,
+    "set_fit_score": SetFitScoreArgs,
     "create_opportunity": CreateOpportunityArgs,
     "add_job_to_pipeline": TrackJobArgs,
 }
@@ -455,6 +489,7 @@ WRITE_TOOLS = (
     "mark_followup",
     "log_interaction",
     "set_next_action",
+    "set_fit_score",
     "create_opportunity",
     "add_job_to_pipeline",
 )

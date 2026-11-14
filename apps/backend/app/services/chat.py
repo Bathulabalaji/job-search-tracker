@@ -21,6 +21,7 @@ from app.core.errors import ChatError, ChatQuotaError, NotFoundError, RateLimite
 from app.llm.errors import AssistantDisabled
 from app.models.chat import ChatConversation, ChatMessage, ChatRun
 from app.models.chat_action import ChatPendingAction
+from app.models.user import User
 from app.repositories.chat import ConversationRepository, MessageRepository, RunRepository
 from app.repositories.chat_action import PendingActionRepository
 from app.repositories.user import RateLimitRepository
@@ -37,6 +38,9 @@ from app.schemas.chat import (
     RunRead,
     SendMessageRequest,
 )
+from app.services.assistant_access import ensure_opted_in, is_opted_out
+from app.services.quotas import QuotaUsage
+from app.services.quotas import usage as quota_usage
 from app.services.rate_limit import RateLimiter
 
 DAY = timedelta(days=1)
@@ -87,6 +91,7 @@ class ChatService:
         used, _ = RateLimitRepository(self.session).window_stats(
             self._day_bucket(), self.clock.now() - DAY
         )
+        opted_out = is_opted_out(self.session, self.user_id)
         job_search = self.settings.job_search_enabled
         searches = None
         if job_search:
@@ -95,12 +100,25 @@ class ChatService:
             )
             searches = QuotaRead(limit=self.settings.chat_search_daily_limit, used=searched)
         return ChatConfig(
-            enabled=self.settings.llm_enabled,
+            enabled=self.settings.llm_enabled and not opted_out,
+            assistant_opt_out=opted_out,
             messages_per_day=QuotaRead(limit=self.settings.chat_daily_messages, used=used),
             suggestions=SUGGESTIONS[:3] + [JOB_SUGGESTION] if job_search else SUGGESTIONS,
             job_search=job_search,
             searches_per_day=searches,
+            matching=self.settings.llm_enabled and not opted_out,
+            recommendations=self.settings.llm_enabled and job_search and not opted_out,
         )
+
+    def quota_usage(self) -> list[QuotaUsage]:
+        return quota_usage(self.session, self.clock, self.settings, self.user_id)
+
+    def set_opt_out(self, opt_out: bool) -> ChatConfig:
+        user = self.session.get(User, self.user_id)
+        if user is not None:
+            user.assistant_opt_out = opt_out
+            self.session.commit()
+        return self.config()
 
     # ---- conversations --------------------------------------------------------------------
 
@@ -173,6 +191,7 @@ class ChatService:
     def start_turn(self, conversation_id: int, data: SendMessageRequest) -> uuid.UUID:
         if not self.settings.llm_enabled:
             raise AssistantDisabled()
+        ensure_opted_in(self.session, self.user_id)
         conversation = self._get(conversation_id)
         if self.messages.by_client_id(conversation.id, data.client_message_id) is not None:
             raise ChatError("duplicate_message", "That message was already sent.", 409)
@@ -216,6 +235,7 @@ class ChatService:
     def prepare_resume(self, conversation_id: int, run_id: uuid.UUID) -> uuid.UUID:
         if not self.settings.llm_enabled:
             raise AssistantDisabled()
+        ensure_opted_in(self.session, self.user_id)
         conversation = self._get(conversation_id)
         run = self._get_run(conversation.id, run_id)
         if run.status != "failed" or run.error_code not in RESUMABLE_CODES:

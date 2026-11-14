@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { useAuth, useCurrentUser } from "@/features/auth/auth-context"
 import { passwordProblem } from "@/features/auth/password-policy"
+import { AssistantPrivacyCard } from "@/features/assistant/assistant-privacy-card"
 import { formatDate } from "@/lib/format"
 
 const profileSchema = z.object({
@@ -261,6 +262,7 @@ export function AccountPage() {
       <PageHeader title="Account" description="Your profile and sign-in security." />
       <div className="space-y-6">
         <ProfileCard />
+        <AssistantPrivacyCard />
         <SecurityCard />
       </div>
     </div>

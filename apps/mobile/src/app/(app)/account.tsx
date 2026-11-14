@@ -10,6 +10,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control"
 import { Text } from "@/components/ui/text"
 import { WEB_URL } from "@/config/env"
 import { useAuth, useUser } from "@/features/auth/auth-context"
+import { AssistantPrivacySection } from "@/features/assistant/assistant-privacy-section"
 import { ChangePasswordSheet, EditNameSheet } from "@/features/auth/account-forms"
 import {
   cancelReminders,
@@ -111,6 +112,8 @@ export default function AccountScreen() {
           </Card>
         </View>
       ) : null}
+
+      <AssistantPrivacySection />
 
       <View style={{ gap: 10 }}>
         <SectionHeader title="Security" />

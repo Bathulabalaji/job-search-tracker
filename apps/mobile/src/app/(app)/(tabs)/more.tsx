@@ -9,7 +9,7 @@ import { useUser } from "@/features/auth/auth-context";
 import { haptics } from "@/lib/haptics";
 import { useTheme } from "@/theme/theme";
 
-type Href = "/assistant" | "/prep" | "/contacts" | "/account";
+type Href = "/assistant" | "/recommendations" | "/prep" | "/contacts" | "/account";
 
 const ITEMS: { href: Href; icon: IconName; title: string; subtitle: string }[] =
   [
@@ -18,6 +18,12 @@ const ITEMS: { href: Href; icon: IconName; title: string; subtitle: string }[] =
       icon: "sparkles-outline",
       title: "Assistant",
       subtitle: "Ask about your pipeline, follow-ups and progress",
+    },
+    {
+      href: "/recommendations",
+      icon: "telescope-outline",
+      title: "Jobs for you",
+      subtitle: "Fresh postings ranked against your resumes",
     },
     {
       href: "/prep",

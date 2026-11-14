@@ -111,6 +111,9 @@ def test_the_claim_covers_every_per_user_table(
         "chat_pending_actions",
         "resume_chunks",
         "job_search_queries",
+        "job_matches",
+        "job_search_profiles",
+        "job_recommendations",
     }
 
 

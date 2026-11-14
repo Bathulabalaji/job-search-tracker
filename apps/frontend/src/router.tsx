@@ -70,6 +70,13 @@ export const router = createBrowserRouter([
               return { Component: AssistantPage }
             },
           },
+          {
+            path: "jobs-for-you",
+            lazy: async () => {
+              const { RecommendationsPage } = await import("@/pages/recommendations-page")
+              return { Component: RecommendationsPage }
+            },
+          },
           { path: "daily-log", element: <DailyLogPage /> },
           { path: "prep", element: <PrepPage /> },
           { path: "contacts", element: <ContactsPage /> },

@@ -26,6 +26,7 @@ from app.llm.gateway import LLMGateway
 from app.models.resume import Resume, ResumeChunk
 from app.repositories.resume import ResumeRepository
 from app.repositories.resume_chunk import ResumeChunkRepository
+from app.services.assistant_access import OPTED_OUT_MESSAGE, is_opted_out
 from app.services.pii import redact
 from app.services.resume_chunking import chunk_resume
 from app.services.resume_profile import extract_profile
@@ -186,6 +187,12 @@ class ResumeDocumentService:
         if not force and resume.embed_status in ("ready", "failed", "none") and resume.profile:
             return resume
         if not force and resume.embed_retry_after is not None and now < resume.embed_retry_after:
+            return resume
+        if is_opted_out(self.session, self.user_id):
+            # Nothing about this resume goes to a model while the assistant is off.
+            resume.embed_status = "none"
+            resume.processing_error = OPTED_OUT_MESSAGE
+            self.session.commit()
             return resume
         if self.gateway is None or not self.gateway.enabled:
             resume.embed_status = "pending"

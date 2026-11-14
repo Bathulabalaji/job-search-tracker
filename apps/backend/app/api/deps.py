@@ -29,9 +29,11 @@ from app.services.daily_log import DailyLogService
 from app.services.dashboard import DashboardService
 from app.services.followup import FollowupService
 from app.services.interaction import InteractionService
+from app.services.job_match import JobMatchService
 from app.services.job_search import JobSearchService
 from app.services.opportunity import OpportunityService
 from app.services.prep_item import PrepItemService
+from app.services.recommendations import RecommendationService
 from app.services.resume import ResumeService
 from app.services.resume_documents import (
     ResumeDocumentService,
@@ -139,6 +141,36 @@ def get_job_search_service(
 
 
 JobSearchServiceDep = Annotated[JobSearchService, Depends(get_job_search_service)]
+
+
+# ---- resume matching and recommendations (Phase 4) --------------------------------------------
+
+
+def get_job_match_service(
+    db: DbSession,
+    clock: ClockDep,
+    settings: SettingsDep,
+    user: CurrentUser,
+    gateway: LLMGatewayDep,
+) -> JobMatchService:
+    return JobMatchService(db, clock, settings, user.id, gateway)
+
+
+JobMatchServiceDep = Annotated[JobMatchService, Depends(get_job_match_service)]
+
+
+def get_recommendation_service(
+    db: DbSession,
+    clock: ClockDep,
+    settings: SettingsDep,
+    user: CurrentUser,
+    gateway: LLMGatewayDep,
+    jobs: JobSearchServiceDep,
+) -> RecommendationService:
+    return RecommendationService(db, clock, settings, user.id, gateway, jobs)
+
+
+RecommendationServiceDep = Annotated[RecommendationService, Depends(get_recommendation_service)]
 
 
 def get_turn_runner(

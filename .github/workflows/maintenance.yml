@@ -1,0 +1,37 @@
+name: Maintenance
+
+# Runs the API's housekeeping sweep (expire pending actions, archive and delete old chats,
+# prune old rows) and, as a side effect, wakes the free-tier API so the first user of the day
+# does not wait for a cold start.
+#
+# Needs two repository secrets (Settings -> Secrets and variables -> Actions):
+#   API_BASE_URL         e.g. https://your-api.onrender.com   (no trailing slash, no /api/v1)
+#   MAINTENANCE_SECRET   the same value as the API's MAINTENANCE_SECRET
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily, 03:17 UTC (08:47 IST)
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run the maintenance sweep
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          MAINTENANCE_SECRET: ${{ secrets.MAINTENANCE_SECRET }}
+        run: |
+          if [ -z "$API_BASE_URL" ] || [ -z "$MAINTENANCE_SECRET" ]; then
+            echo "API_BASE_URL and MAINTENANCE_SECRET must be set as repository secrets."
+            exit 1
+          fi
+          # A sleeping free-tier instance can take about a minute to answer the first request.
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-delay 20 --retry-all-errors --max-time 120 \
+            -X POST "$API_BASE_URL/api/v1/internal/maintenance" \
+            -H "X-Maintenance-Secret: $MAINTENANCE_SECRET"
+          echo

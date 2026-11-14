@@ -3,7 +3,9 @@
 ping [--task chat.agent] [TEXT]   one message through the router: model, latency, tokens
 status                            per-model budget, cooldowns and circuit state
 reset-cooldowns                   clear cooldowns and circuits (after fixing a key, say)
-usage [--since 7d]                calls, tokens and errors per provider, model and task
+usage [--since 7d] [--by model,task] [--price-in P --price-out P]
+                                  calls, tokens and errors, rolled up as you choose; with prices
+                                  (dollars per million tokens) also an estimated paid-tier cost
 """
 
 import argparse
@@ -23,6 +25,7 @@ from app.llm import build_llm_gateway
 from app.llm.errors import LLMError
 from app.llm.gateway import LLMGateway
 from app.llm.policy import Task
+from app.llm.usage_report import rollup
 
 _SINCE = re.compile(r"^(\d+)([mhd])$")
 
@@ -91,16 +94,31 @@ def cmd_usage(gateway: LLMGateway, settings: Settings, args: argparse.Namespace)
     if not rows:
         print(f"no provider calls since {since.isoformat(timespec='minutes')}")
         return
+    by = [d.strip() for d in args.by.split(",") if d.strip()]
+    try:
+        rolled = rollup(rows, by)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    priced = args.price_in is not None or args.price_out is not None
+    head = " ".join(f"{d:24}" for d in by)
     print(
-        f"{'provider':8} {'model':40} {'task':20} {'outcome':12} "
-        f"{'calls':>6} {'in':>8} {'out':>8} {'avg ms':>6}"
+        f"{head} {'calls':>6} {'errors':>6} {'in':>9} {'out':>9} {'avg ms':>6}"
+        + (f" {'est $':>9}" if priced else "")
     )
-    for row in rows:
-        print(
-            f"{row.provider:8} {row.resource:40} {row.task:20} {row.outcome:12} "
-            f"{row.calls:>6} {row.prompt_tokens:>8} {row.completion_tokens:>8} "
-            f"{row.avg_latency_ms:>6}"
+    total = 0.0
+    for row in rolled:
+        cells = " ".join(f"{k:24}" for k in row.keys)
+        line = (
+            f"{cells} {row.calls:>6} {row.errors:>6} {row.prompt_tokens:>9} "
+            f"{row.completion_tokens:>9} {row.avg_latency_ms:>6}"
         )
+        cost = row.cost(args.price_in, args.price_out)
+        if cost is not None:
+            total += cost
+            line += f" {cost:>9.4f}"
+        print(line)
+    if priced:
+        print(f"estimated total at the prices given: ${total:.4f}")
 
 
 def main() -> None:
@@ -118,6 +136,9 @@ def main() -> None:
     sub.add_parser("reset-cooldowns").set_defaults(func=cmd_reset)
     usage = sub.add_parser("usage")
     usage.add_argument("--since", default="7d")
+    usage.add_argument("--by", default="provider,model,task", help="provider, model and/or task")
+    usage.add_argument("--price-in", type=float, help="$ per million prompt tokens")
+    usage.add_argument("--price-out", type=float, help="$ per million completion tokens")
     usage.set_defaults(func=cmd_usage)
     args = parser.parse_args()
     settings = get_settings()

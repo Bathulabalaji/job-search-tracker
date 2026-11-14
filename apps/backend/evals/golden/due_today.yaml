@@ -1,0 +1,13 @@
+name: due_today
+description: A plain read question routes to the today tool and answers from its result.
+turns:
+  - say: "What's due today?"
+    groq:
+      - verdict: {intent: today}
+      - tool_call: {name: get_today}
+      - reply: "Nothing is due today. A quiet day."
+    expect:
+      tools: [get_today]
+      contains: ["Nothing is due today"]
+      no_events: [error, confirmation_required]
+      agent_calls: 2

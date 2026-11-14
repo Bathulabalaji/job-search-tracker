@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "./client";
 import { queryKeys } from "./keys";
+import type { MatchResult } from "./matching";
 
 export interface ChatConfig {
   enabled: boolean;
@@ -10,6 +11,18 @@ export interface ChatConfig {
   suggestions: string[];
   job_search?: boolean;
   searches_per_day?: { limit: number; used: number } | null;
+  matching?: boolean;
+  recommendations?: boolean;
+  assistant_opt_out?: boolean;
+}
+
+/** One daily allowance: how much is used and when the oldest use ages out. */
+export interface QuotaUsage {
+  name: "messages" | "searches" | "matches" | "recommendations" | "reindex";
+  label: string;
+  limit: number;
+  used: number;
+  resets_at: string | null;
 }
 
 /** A job posting found by the assistant's search_jobs tool, shown as a card. */
@@ -30,7 +43,12 @@ export interface JobCardData {
   tracked_opportunity_id: number | null;
 }
 
-export type ChatAttachment = JobCardData;
+/** How each resume fits one job, shown as a card after which_resume_fits. */
+export interface MatchCardData extends MatchResult {
+  type: "match";
+}
+
+export type ChatAttachment = JobCardData | MatchCardData;
 
 export interface ChatConversation {
   id: number;
@@ -109,6 +127,30 @@ export function useChatConfig() {
     queryKey: queryKeys.chat.config,
     queryFn: () => request<ChatConfig>("/chat/config"),
     staleTime: 60_000,
+  });
+}
+
+export function useQuotaUsage() {
+  return useQuery({
+    queryKey: queryKeys.chat.usage,
+    queryFn: () => request<QuotaUsage[]>("/chat/usage"),
+    staleTime: 30_000,
+  });
+}
+
+/** Switch the AI assistant off (or back on) for this account. */
+export function useSetAssistantOptOut() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (optOut: boolean) =>
+      request<ChatConfig>("/chat/preferences", {
+        method: "PUT",
+        body: { assistant_opt_out: optOut },
+      }),
+    onSuccess: (config) => {
+      queryClient.setQueryData(queryKeys.chat.config, config);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.chat.usage });
+    },
   });
 }
 

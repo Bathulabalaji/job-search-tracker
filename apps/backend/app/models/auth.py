@@ -61,7 +61,10 @@ class RateLimitEvent(Base):
     """One row per counted attempt. Shared across workers, unlike in-memory counters."""
 
     __tablename__ = "rate_limit_events"
-    __table_args__ = (Index("ix_rate_limit_events_bucket_created", "bucket", "created_at"),)
+    __table_args__ = (
+        Index("ix_rate_limit_events_bucket_created", "bucket", "created_at"),
+        Index("ix_rate_limit_events_created", "created_at"),  # retention sweeps
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     bucket: Mapped[str] = mapped_column(String(200))

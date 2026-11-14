@@ -2,7 +2,7 @@
 
 from datetime import date
 
-PROMPT_VERSION = "2026-11-14.2"
+PROMPT_VERSION = "2026-11-14.3"
 
 DECLINE_MESSAGE = (
     "I can only help with your job search in this app: your pipeline, follow-ups, "
@@ -18,6 +18,7 @@ def system_prompt(
     summary: str | None,
     writes_enabled: bool = True,
     job_search_enabled: bool = False,
+    matching_enabled: bool = False,
 ) -> str:
     changes = (
         [
@@ -64,6 +65,18 @@ def system_prompt(
                 "- Live job search is not set up on this server. If asked to find jobs, say so "
                 "and offer to add a job the user found as an opportunity.",
             ]
+        ),
+        *(
+            [
+                "- which_resume_fits scores the user's uploaded resumes against one job and "
+                "shows a card with the breakdown, so give the headline in one or two lines: "
+                "the best resume, its score and the one or two most useful gaps. Only offer "
+                "set_fit_score when the user wants the score saved. 'Jobs for you' is the "
+                "ranked feed: get_recommendations reads it, refresh_recommendations looks for "
+                "new jobs (limited per day).",
+            ]
+            if matching_enabled
+            else []
         ),
         "- Politely decline anything unrelated to the user's job search or this app.",
         "",

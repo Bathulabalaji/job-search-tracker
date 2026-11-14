@@ -25,6 +25,7 @@ import { EmptyState, ErrorState } from "@/components/ui/states"
 import { Text } from "@/components/ui/text"
 import { ContactSheet } from "@/features/contacts/contact-sheet"
 import { FollowupSheet } from "@/features/detail/followup-sheet"
+import { ResumeFitSection } from "@/features/detail/resume-fit-section"
 import { LogInteractionSheet } from "@/features/detail/log-interaction-sheet"
 import { STAGE_OPTIONS } from "@/features/pipeline/options"
 import { formatDate, formatDateTime, titleCase } from "@/lib/format"
@@ -234,6 +235,8 @@ function Overview({ o }: { o: NonNullable<ReturnType<typeof useOpportunity>["dat
           </View>
         ) : null}
       </Card>
+
+      <ResumeFitSection opportunity={o} />
 
       {o.next_action ? (
         <Card style={{ borderColor: "transparent" }}>

@@ -10,9 +10,12 @@ from app.api import (
     followups,
     health,
     interactions,
+    internal,
     jobs,
+    matching,
     opportunities,
     prep_items,
+    recommendations,
     resumes,
     weekly_targets,
 )
@@ -23,6 +26,7 @@ api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_trusted_o
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(resumes.files_router)  # token-signed downloads, no session
+api_router.include_router(internal.router)  # secret-protected, for scheduled jobs
 
 # Everything below requires a signed-in user. The dependency also enforces the CSRF token on
 # POST/PATCH/PUT/DELETE, and each service only ever sees that user's rows.
@@ -40,5 +44,7 @@ for module in (
     resumes,
     chat,
     jobs,
+    matching,
+    recommendations,
 ):
     api_router.include_router(module.router, dependencies=_protected)

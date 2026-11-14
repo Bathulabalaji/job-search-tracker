@@ -59,3 +59,16 @@ class JobSearchQuotaError(RateLimitedError):
         super().__init__(retry_after_seconds)
         self.code = "search_quota"
         self.message = message
+
+
+class MatchError(AuthError):
+    """A match request the user can act on (no JD, resumes not indexed yet...)."""
+
+
+class QuotaError(RateLimitedError):
+    """A per-user daily allowance is used up. `code` is specific to the allowance."""
+
+    def __init__(self, code: str, retry_after_seconds: int, message: str) -> None:
+        super().__init__(retry_after_seconds)
+        self.code = code
+        self.message = message

@@ -3,12 +3,13 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 
-import type { ChatAttachment, JobCardData } from "@/api/chat";
+import type { ChatAttachment, JobCardData, MatchCardData } from "@/api/chat";
 import { ApiError } from "@/api/client";
 import { useTrackJob } from "@/api/jobs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { MatchBreakdown } from "@/features/matching/match-breakdown";
 import { haptics } from "@/lib/haptics";
 import { toast } from "@/lib/toast-bus";
 import { radius } from "@/theme/tokens";
@@ -45,7 +46,17 @@ function activeBadge(status: string) {
   return <Badge label="Not verified" />;
 }
 
-export function JobCard({ job }: { job: JobCardData }) {
+export function JobCard({
+  job,
+  note,
+  extraActions,
+}: {
+  job: JobCardData;
+  /** A line under the badges, e.g. why this job was recommended. */
+  note?: string;
+  /** Buttons shown before Open and Track, e.g. Dismiss. */
+  extraActions?: React.ReactNode;
+}) {
   const { colors } = useTheme();
   const track = useTrackJob();
   const [trackedId, setTrackedId] = useState<number | null>(
@@ -110,7 +121,13 @@ export function JobCard({ job }: { job: JobCardData }) {
           </Text>
         ) : null}
       </View>
+      {note ? (
+        <Text tone="muted" variant="caption">
+          {note}
+        </Text>
+      ) : null}
       <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+        {extraActions}
         {href ? (
           <Button
             label="Open"
@@ -150,11 +167,51 @@ export function JobCard({ job }: { job: JobCardData }) {
   );
 }
 
+function MatchCard({ match }: { match: MatchCardData }) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.md,
+        backgroundColor: colors.surfaceRaised,
+        padding: 12,
+        gap: 8,
+      }}
+    >
+      <Text style={{ fontWeight: "600" }}>
+        Resume fit · {match.target_label}
+      </Text>
+      <MatchBreakdown result={match} />
+      {match.target === "opportunity" ? (
+        <Button
+          label="Open opportunity"
+          icon="open-outline"
+          variant="secondary"
+          size="sm"
+          fullWidth={false}
+          onPress={() =>
+            router.push({
+              pathname: "/opportunity/[id]",
+              params: { id: match.target_id },
+            })
+          }
+        />
+      ) : null}
+    </View>
+  );
+}
+
 export function AttachmentList({ items }: { items: ChatAttachment[] }) {
   const jobs = items.filter((a): a is JobCardData => a.type === "job");
-  if (!jobs.length) return null;
+  const matches = items.filter((a): a is MatchCardData => a.type === "match");
+  if (!jobs.length && !matches.length) return null;
   return (
-    <View style={{ gap: 8, marginTop: 4 }} accessibilityLabel="Job results">
+    <View style={{ gap: 8, marginTop: 4 }} accessibilityLabel="Results">
+      {matches.map((match) => (
+        <MatchCard key={`${match.target}-${match.target_id}`} match={match} />
+      ))}
       {jobs.map((job) => (
         <JobCard key={job.id} job={job} />
       ))}

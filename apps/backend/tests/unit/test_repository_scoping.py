@@ -13,6 +13,7 @@ UNSCOPED_ON_PURPOSE = {
     "app.repositories.user",
     "app.repositories.provider_ledger",
     "app.repositories.job_posting",
+    "app.repositories.maintenance",  # retention sweeps across all users
 }
 
 

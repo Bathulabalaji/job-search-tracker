@@ -74,6 +74,7 @@ class ChatRun(OwnedMixin, Base):
 
     __tablename__ = "chat_runs"
     __table_args__ = (
+        Index("ix_chat_runs_status_finished", "status", "finished_at"),  # retention sweeps
         Index(
             "uq_chat_runs_one_active",
             "conversation_id",

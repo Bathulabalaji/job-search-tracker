@@ -1,0 +1,15 @@
+name: job_search_cards
+description: A search returns cards from structured results; links never come from model text.
+jobs:
+  - {company: Razorpay, title: Platform Engineer}
+  - {company: CRED, title: Backend Engineer}
+turns:
+  - say: "Find backend jobs in Bengaluru"
+    groq:
+      - verdict: {intent: job_search}
+      - tool_call: {name: search_jobs, args: {query: "backend engineer", location: "Bengaluru"}}
+      - reply: "Found two: Platform Engineer at Razorpay and Backend Engineer at CRED."
+    expect:
+      tools: [search_jobs]
+      events: [cards]
+      contains: ["Razorpay"]

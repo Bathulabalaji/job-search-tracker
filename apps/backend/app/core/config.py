@@ -128,6 +128,23 @@ class Settings(BaseSettings):
     job_active_check_timeout_seconds: float = 5.0
     chat_search_daily_limit: int = 10  # live searches per user per day
 
+    # ---- Retention and maintenance (Phase 5) --------------------------------------------------
+    # POST /internal/maintenance is off (404) until a secret is set; a scheduled job calls it.
+    maintenance_secret: str = ""
+    chat_run_retention_hours: int = 24  # keep a finished run's checkpoint this long (for Retry)
+    chat_retention_archive_days: int = 90  # archive conversations idle this long
+    chat_retention_purge_days: int = 180  # delete conversations idle this long
+    usage_events_retention_days: int = 90  # provider usage and rate-limit rows
+
+    # ---- Resume matching and recommendations (Phase 4) ---------------------------------------
+    match_daily_limit: int = (
+        20  # fresh resume-vs-job scorings per user per day (cached ones are free)
+    )
+    match_min_vector_score: float = 0.55  # default floor for "Jobs for you"
+    recommendations_refresh_per_day: int = 2
+    recommendations_max_items: int = 20
+    recommendations_max_queries: int = 2  # search calls one refresh may spend (provider quota!)
+
     @property
     def frontend_is_local(self) -> bool:
         return (urlparse(self.frontend_url).hostname or "") in LOCAL_HOSTS

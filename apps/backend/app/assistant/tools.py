@@ -12,7 +12,7 @@ from datetime import date
 from typing import Any, Literal
 
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
@@ -25,14 +25,17 @@ from app.llm.gateway import LLMGateway
 from app.models.enums import FollowupStatus, PrepCategory, PrepStatus, Source, Stage
 from app.repositories.resume_chunk import ResumeChunkRepository
 from app.schemas.job import JobPostingRead, JobSearchRequest
+from app.schemas.match import MatchResult
 from app.services.analytics import AnalyticsService
 from app.services.contact import ContactService
 from app.services.dashboard import DashboardService
 from app.services.followup import FollowupService
 from app.services.interaction import InteractionService
+from app.services.job_match import JobMatchService
 from app.services.job_search import JobSearchService
 from app.services.opportunity import OpportunityService
 from app.services.prep_item import PrepItemService
+from app.services.recommendations import RecommendationService
 from app.services.resume import ResumeService
 
 MAX_RESULT_CHARS = 1_400
@@ -159,6 +162,21 @@ class JobIdArgs(BaseModel):
     job_posting_id: int
 
 
+class WhichResumeArgs(BaseModel):
+    opportunity_id: int | None = Field(None, description="An opportunity in the pipeline")
+    job_posting_id: int | None = Field(None, description="A posting returned by search_jobs")
+
+    @model_validator(mode="after")
+    def _one_target(self) -> "WhichResumeArgs":
+        if (self.opportunity_id is None) == (self.job_posting_id is None):
+            raise ValueError("give exactly one of opportunity_id or job_posting_id")
+        return self
+
+
+class RecommendationsArgs(BaseModel):
+    limit: int = Field(5, ge=1, le=10)
+
+
 class SearchResumeArgs(BaseModel):
     query: str = Field(min_length=2, max_length=300, description="What to look for")
     resume_id: int | None = Field(None, description="Only this resume; default all")
@@ -210,6 +228,8 @@ def build_read_tools(
     timeout_seconds: float | None = None,
     gateway: LLMGateway | None = None,
     jobs: JobSearchService | None = None,
+    matching: JobMatchService | None = None,
+    recs: RecommendationService | None = None,
 ) -> dict[str, AssistantTool]:
     opportunities = OpportunityService(session, clock, settings, user_id)
     dashboard = DashboardService(session, clock, user_id)
@@ -529,6 +549,67 @@ def build_read_tools(
             "_cards": [job_card(j) for j in found.results],
         }
 
+    def match_card(result: MatchResult) -> dict[str, Any]:
+        return {"type": "match", **result.model_dump(mode="json")}
+
+    def which_resume_fits(raw: BaseModel) -> dict[str, Any]:
+        assert matching is not None
+        a = WhichResumeArgs.model_validate(raw.model_dump())
+        result = (
+            matching.match_opportunity(a.opportunity_id)
+            if a.opportunity_id is not None
+            else matching.match_posting(a.job_posting_id or 0)
+        )
+        return {
+            "job": result.target_label,
+            "best_resume": next(
+                (m.label for m in result.per_resume if m.resume_id == result.best_resume_id), None
+            ),
+            "cached": result.cached or None,
+            "resumes": [
+                {
+                    "resume_id": m.resume_id,
+                    "label": m.label,
+                    "score": m.score,
+                    "similarity": round(m.vector_score * 100) if m.vector_score else None,
+                    "matched": m.matched_skills[:6],
+                    "missing": m.missing_skills[:6],
+                    "suggestions": m.suggestions[:2],
+                }
+                for m in result.per_resume
+            ],
+            "_cards": [match_card(result)],
+        }
+
+    def get_recommendations(raw: BaseModel) -> dict[str, Any]:
+        assert recs is not None
+        a = RecommendationsArgs.model_validate(raw.model_dump())
+        feed = recs.feed(a.limit)
+        return {
+            "count": len(feed),
+            "jobs": [
+                {
+                    "job_posting_id": r.job.id,
+                    "title": r.job.title,
+                    "company": r.job.company,
+                    "location": r.job.location,
+                    "similarity": round(r.vector_score * 100),
+                    "best_resume": r.best_resume_label,
+                }
+                for r in feed
+            ],
+            "_cards": [job_card(r.job) for r in feed],
+        }
+
+    def refresh_recommendations(_: BaseModel) -> dict[str, Any]:
+        assert recs is not None
+        done = recs.refresh()
+        return {
+            "new": done.added,
+            "considered": done.considered,
+            "notices": [n.message for n in done.notices] or None,
+        }
+
     def check_job_active(raw: BaseModel) -> dict[str, Any]:
         assert jobs is not None
         a = JobIdArgs.model_validate(raw.model_dump())
@@ -647,6 +728,40 @@ def build_read_tools(
                 lambda r: f"still open: {r['still_open']}",
             ),
         ]
+    if matching is not None and gateway is not None and gateway.enabled:
+        tools.append(
+            AssistantTool(
+                "which_resume_fits",
+                "Score how well each of the user's uploaded resumes fits one job (a pipeline "
+                "opportunity or a posting from search_jobs): a 0-100 score per resume, the "
+                "best resume, matched and missing skills and up to 3 suggestions. Costs a "
+                "model call unless nothing changed, so don't repeat it for the same job.",
+                WhichResumeArgs,
+                which_resume_fits,
+                lambda r: f"best: {r.get('best_resume') or 'none'}",
+                max_chars=2_200,
+            )
+        )
+    if recs is not None and jobs is not None and jobs.enabled:
+        tools += [
+            AssistantTool(
+                "get_recommendations",
+                "The user's 'Jobs for you' feed: postings ranked by similarity to their "
+                "resumes. Shown as cards.",
+                RecommendationsArgs,
+                get_recommendations,
+                lambda r: _rows(int(r.get("count", 0)), "job"),
+                max_chars=1_800,
+            ),
+            AssistantTool(
+                "refresh_recommendations",
+                "Look for new jobs for the user from their search profile (spends search "
+                "quota; limited per day). Call get_recommendations afterwards.",
+                NoArgs,
+                refresh_recommendations,
+                lambda r: f"{r['new']} new",
+            ),
+        ]
     if timeout_seconds:
         tools = [
             AssistantTool(
@@ -671,7 +786,9 @@ WRITE = (
     "log_interaction",
     "set_next_action",
     "create_opportunity",
+    "set_fit_score",
 )
+FITS = ("which_resume_fits", "get_recommendations", "refresh_recommendations")
 JOBS = ("search_jobs", "check_job_active", "add_job_to_pipeline")
 TOOLSETS: dict[str, tuple[str, ...]] = {
     "today": CORE + ("list_followups",) + WRITE,
@@ -687,8 +804,12 @@ TOOLSETS: dict[str, tuple[str, ...]] = {
         "search_resume",
         "list_opportunities",
         "get_opportunity",
+        "which_resume_fits",
+        "set_fit_score",
     ),
-    "job_search": JOBS + ("get_pipeline_summary", "list_opportunities", "list_resumes"),
+    "job_search": JOBS
+    + FITS
+    + ("set_fit_score", "get_pipeline_summary", "list_opportunities", "list_resumes"),
     "smalltalk": (),
 }
 ALL_TOOLS = (
@@ -707,6 +828,7 @@ ALL_TOOLS = (
     )
     + WRITE
     + JOBS
+    + FITS
 )
 
 

@@ -11,11 +11,12 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
-import type { ChatAttachment, JobCardData } from "@/api/chat"
+import type { ChatAttachment, JobCardData, MatchCardData } from "@/api/chat"
 import { ApiError } from "@/api/client"
 import { useTrackJob } from "@/api/jobs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MatchBreakdown } from "@/features/matching/match-breakdown"
 import { cn } from "@/lib/utils"
 
 const SITE_LABELS: Record<string, string> = {
@@ -64,7 +65,17 @@ function ActiveBadge({ status }: { status: string }) {
   )
 }
 
-export function JobCard({ job }: { job: JobCardData }) {
+export function JobCard({
+  job,
+  note,
+  extraActions,
+}: {
+  job: JobCardData
+  /** A line under the badges, e.g. why this job was recommended. */
+  note?: React.ReactNode
+  /** Buttons shown before Open and Track, e.g. Dismiss. */
+  extraActions?: React.ReactNode
+}) {
   const track = useTrackJob()
   const [trackedId, setTrackedId] = useState<number | null>(job.tracked_opportunity_id)
   const href = safeHref(job.apply_url)
@@ -107,9 +118,11 @@ export function JobCard({ job }: { job: JobCardData }) {
             <ActiveBadge status={job.active_status} />
             {posted ? <span className="text-xs text-muted-foreground">{posted}</span> : null}
           </div>
+          {note ? <p className="pt-0.5 text-xs text-muted-foreground">{note}</p> : null}
         </div>
       </div>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
+        {extraActions}
         {href ? (
           <Button asChild size="sm" variant="outline">
             <a href={href} target="_blank" rel="noopener noreferrer nofollow">
@@ -131,6 +144,22 @@ export function JobCard({ job }: { job: JobCardData }) {
   )
 }
 
+function MatchCard({ match }: { match: MatchCardData }) {
+  return (
+    <li className="space-y-2 rounded-lg border bg-muted/30 p-3">
+      <p className="text-sm font-medium">Resume fit · {match.target_label}</p>
+      <MatchBreakdown result={match} />
+      {match.target === "opportunity" ? (
+        <div className="flex justify-end">
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/opportunities/${match.target_id}`}>Open opportunity</Link>
+          </Button>
+        </div>
+      ) : null}
+    </li>
+  )
+}
+
 export function AttachmentList({
   items,
   className,
@@ -139,9 +168,13 @@ export function AttachmentList({
   className?: string
 }) {
   const jobs = items.filter((a): a is JobCardData => a.type === "job")
-  if (!jobs.length) return null
+  const matches = items.filter((a): a is MatchCardData => a.type === "match")
+  if (!jobs.length && !matches.length) return null
   return (
-    <ul className={cn("mt-3 grid gap-2", className)} aria-label="Job results">
+    <ul className={cn("mt-3 grid gap-2", className)} aria-label="Results">
+      {matches.map((match) => (
+        <MatchCard key={`${match.target}-${match.target_id}`} match={match} />
+      ))}
       {jobs.map((job) => (
         <JobCard key={job.id} job={job} />
       ))}

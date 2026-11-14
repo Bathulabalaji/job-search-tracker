@@ -1,0 +1,15 @@
+name: pipeline_summary
+description: Counts come from the summary tool, not from the model's memory.
+seed:
+  opportunities:
+    - {company: Zepto, role: Backend Engineer, stage: applied}
+    - {company: Swiggy, role: Platform Engineer, stage: interviewing}
+turns:
+  - say: "Summarise my pipeline"
+    groq:
+      - verdict: {intent: pipeline}
+      - tool_call: {name: get_pipeline_summary}
+      - reply: "You have 2 opportunities: one applied, one interviewing."
+    expect:
+      tools: [get_pipeline_summary]
+      contains: ["2 opportunities"]

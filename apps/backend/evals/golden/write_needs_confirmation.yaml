@@ -1,0 +1,14 @@
+name: write_needs_confirmation
+description: A change is only proposed as a card; nothing is written before the user confirms.
+seed:
+  opportunities:
+    - {company: Zepto, role: Backend Engineer, stage: applied}
+turns:
+  - say: "Set my next action for Zepto to prepare system design"
+    groq:
+      - verdict: {intent: write}
+      - tool_call: {name: set_next_action, args: {opportunity_id: "{opp:Zepto}", next_action: "Prepare system design"}}
+    expect:
+      events: [confirmation_required]
+      no_events: [error]
+      nothing_written: true

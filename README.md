@@ -43,7 +43,7 @@ Layout: `app/api` (routers), `app/services`, `app/repositories`, `app/models`, `
 | --- | --- | --- | --- |
 | Health endpoint | any | `curl http://localhost:8000/api/v1/health` | `{"status":"ok"}` |
 | OpenAPI docs | browser | <http://localhost:8000/docs> | Swagger UI listing health, opportunities, contacts, interactions, followups |
-| Tests | `apps/backend` | `uv run pytest` | 557 passed |
+| Tests | `apps/backend` | `uv run pytest` | 594 passed |
 | Types | `apps/backend` | `uv run mypy` | `Success: no issues found` |
 | Lint | `apps/backend` | `uv run ruff check .` | `All checks passed!` |
 | Alembic connects | `apps/backend` | `uv run alembic current` | `0004 (head)` after you run the migration below |
@@ -82,7 +82,7 @@ The script has four independent sections, and each runs only if that account has
 From `apps/backend`:
 
 ```bash
-uv run pytest            # 557 tests
+uv run pytest            # 594 tests
 uv run pytest tests/unit # pure rules only, no database needed
 ```
 
@@ -419,6 +419,57 @@ and Track adds the job to the pipeline as an opportunity (from chat, after a con
 Every provider call is a row in `provider_usage_events` (tokens, latency, outcome; never the
 prompt). Logs carry the same fields under the `llm_call` event. Optional LangSmith tracing
 (`LANGSMITH_TRACING=true` plus a key) sends prompts to LangSmith, so it is off by default.
+
+### Resume matching and Jobs for you (Phase 4)
+
+- **Which resume fits?** On an opportunity (web sidebar, mobile Overview) or in chat ("which
+  resume fits the Zepto role?"), every uploaded resume is scored 0-100 against the job
+  description, with the skills it covers, the skills it lacks and up to three concrete edits.
+  One model call scores all resumes at once. The result is cached per job text and resume file,
+  so asking again about an unchanged pair is free; editing the JD or replacing a resume
+  recomputes. Skills the model lists are checked against the JD and the resume text, so it
+  cannot "match" a skill the resume does not contain. `MATCH_DAILY_LIMIT` (default 20) counts
+  only fresh scorings.
+- **Jobs for you** (web `/jobs-for-you`, mobile More): postings ranked by how close they are to
+  your resumes' passages. A refresh runs up to `RECOMMENDATIONS_MAX_QUERIES` searches from your
+  search profile (titles and places, started from your resume profiles, editable), embeds the new
+  postings once and ranks by similarity; no model call is made to rank. It is limited to
+  `RECOMMENDATIONS_REFRESH_PER_DAY` and uses the same search providers, so on a small free
+  search quota keep both numbers low. Dismissed and tracked jobs never come back.
+- **API**: `POST/GET /opportunities/{id}/match`, `POST /jobs/{id}/match`,
+  `GET /recommendations`, `POST /recommendations/refresh`, `GET/PUT /recommendations/profile`,
+  `POST /recommendations/{id}/dismiss`. Migration `0010` adds `job_matches`,
+  `job_search_profiles` and `job_recommendations`.
+- **Assistant tools**: `which_resume_fits`, `get_recommendations`, `refresh_recommendations`,
+  and the confirmed write tool `set_fit_score`.
+
+### Limits, privacy and operations (Phase 5)
+
+- **Allowances are visible.** `GET /chat/usage` lists every daily allowance (messages,
+  searches, comparisons, refreshes, re-indexing) with use and reset time; Account shows them.
+- **Opt-out.** Account has a switch for the AI assistant. Off means no chat, comparison,
+  recommendations or resume indexing for that user, enforced on the server (403
+  `assistant_opted_out`); nothing about their resumes is sent to a model.
+  `PUT /chat/preferences {"assistant_opt_out": true}`. Migration `0011`.
+- **What goes where.** Groq and Google receive your questions, tool results and the redacted
+  text of resumes. Search providers receive search words only. Uploaded PDFs sit in your private
+  bucket. Government IDs, bank details and similar are removed before anything is sent. Logs
+  hold ids, sizes and timings, never message or resume text (a test enforces it).
+- **Scheduled maintenance.** Set `MAINTENANCE_SECRET`, then a daily GitHub Actions job
+  (`.github/workflows/maintenance.yml`, needs repository secrets `API_BASE_URL` and
+  `MAINTENANCE_SECRET`) calls `POST /api/v1/internal/maintenance`. It expires overdue
+  confirmations, archives conversations idle 90 days and deletes them at 180, prunes old
+  checkpoints, deletes expired unreferenced job postings and old usage rows. Every rule is safe
+  to repeat. The call also wakes the free-tier API.
+- **Stored files.** `uv run python -m app.scripts.storage_admin gc` lists files no resume points
+  at (deleted accounts, failed uploads); add `--delete` to remove them.
+- **Cost.** `uv run python -m app.scripts.llm_admin usage --since 30d --by model,task
+  --price-in 0.1 --price-out 0.4` rolls usage up and estimates paid-tier cost from prices you
+  give it.
+- **Golden conversations.** `uv run pytest tests/evals` replays `evals/golden/*.yaml` against the
+  real graph with scripted models: routing, tools, confirmation, cards and untrusted-text
+  handling. See `evals/README.md` for what this can and cannot tell you.
+- **Growing.** `docs/ASSISTANT_SCALE.md` says what breaks first and what to change.
 
 ## Configuration
 

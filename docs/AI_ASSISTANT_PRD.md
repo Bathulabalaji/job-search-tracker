@@ -496,3 +496,52 @@ Differences from the plan:
   run live once (a closed Greenhouse posting read as inactive; local and cloud-metadata
   addresses were refused).
 
+### Phase 4 (shipped 2026-11-14)
+
+Built: resume-vs-job scoring (`JobMatchService`), cached per (JD hash, resume file hash), one
+structured model call scoring all resumes; "Jobs for you" (`RecommendationService`) with a
+per-user search profile, ranking by embedding similarity with no model call; chat tools
+`which_resume_fits`, `get_recommendations`, `refresh_recommendations` and the confirmed write
+tool `set_fit_score`; web and mobile fit card, chat match card and recommendations screen.
+Migration `0010`. Differences from the plan:
+- **No embedding column on `job_postings` and no `opportunities.jd_hash`.** The JD hash is
+  computed from the text when needed, and posting embeddings are computed per refresh (one batch)
+  rather than stored. This avoids a second vector column that differs between pgvector and plain
+  Postgres. The cost is re-embedding postings that stay in the feed across refreshes, which only
+  new postings trigger.
+- **No lazy re-indexing before a match.** A resume needs extracted text (`text_status=ready`);
+  if its embeddings are still pending it is scored from its profile and text with no similarity
+  number, rather than refusing. Matching 409s only when no resume has a file.
+- **No unique constraint with NULLS NOT DISTINCT on `job_matches`.** A recompute deletes the old
+  row for that (job, resume) and inserts the new one, so rows cannot pile up.
+- **Skills are verified, not trusted.** "Matched" must appear in the JD and the resume;
+  "missing" must appear in the JD and not in the resume. Anything else the model says is dropped.
+- **Refresh spends search quota.** It bypasses the per-user chat-search allowance (it has its own,
+  `RECOMMENDATIONS_REFRESH_PER_DAY`) but not the provider quotas. Defaults: 2 refreshes a day, 2
+  searches each.
+- **Not live-verified with real models.** Scoring quality, and whether a real model picks
+  `which_resume_fits` when asked, are untested; the rubric and thresholds are untuned.
+
+### Phase 5 (shipped 2026-11-14, partly)
+
+Built: `GET /chat/usage` and visible allowances; assistant opt-out enforced in chat, matching,
+recommendations and resume indexing; a secret-protected maintenance sweep plus a GitHub Actions
+schedule; `storage_admin gc`; `llm_admin usage --by ... --price-in/--price-out`; golden
+conversations in fake mode; a test that logs never contain message or resume text; retention
+indexes (migration `0011`); `docs/ASSISTANT_SCALE.md`. Differences from the plan:
+- **Evals run in fake mode only.** There is no `live --budget-tokens` mode. The suite proves the
+  wiring and the guardrails, not model quality.
+- **No `app.scripts.evals` entry point.** The suite is pytest (`tests/evals`).
+- **No central quota service that enforces.** `app/services/quotas.py` reads every allowance for
+  display; each service still consumes its own bucket where the work happens.
+- **No price table.** Prices are passed on the command line, because they differ per model and
+  change.
+- **The sweep does not retry pending embeddings.** They need that user's store and budget; they
+  retry when the resume is next opened or on "Retry indexing". It does not refresh search
+  profiles either (that spends search quota).
+- **Opt-out is per account and stops model features only.** Resume files are still stored and
+  their text still extracted; nothing is sent to a model.
+- **Account deletion** does not yet trigger the storage cleanup itself; run `storage_admin gc`
+  (or wait for the operator to) after an account is deleted.
+- **No privacy-page text beyond the Account card and README.** There is no separate privacy page.
+

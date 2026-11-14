@@ -47,7 +47,9 @@ from app.llm.providers.base import ChatProvider
 from app.models.chat import ChatMessage, ChatRun
 from app.repositories.chat import ConversationRepository, MessageRepository, RunRepository
 from app.repositories.chat_action import PendingActionRepository
+from app.services.job_match import JobMatchService
 from app.services.job_search import JobSearchService
+from app.services.recommendations import RecommendationService
 
 logger = logging.getLogger("app.assistant")
 
@@ -179,6 +181,10 @@ class _Turn:
                 owner.job_providers,
                 owner.job_checker,
             )
+            matching = JobMatchService(self.session, owner.clock, settings, owner.user_id, gateway)
+            recs = RecommendationService(
+                self.session, owner.clock, settings, owner.user_id, gateway, jobs
+            )
             deps = AgentDeps(
                 gateway=gateway,
                 tools=build_read_tools(
@@ -189,6 +195,8 @@ class _Turn:
                     timeout_seconds=settings.chat_tool_timeout_seconds,
                     gateway=gateway,
                     jobs=jobs,
+                    matching=matching,
+                    recs=recs,
                 ),
                 write_tools=(
                     build_write_tools(self.session, owner.clock, settings, owner.user_id, jobs=jobs)
@@ -209,6 +217,7 @@ class _Turn:
                     summary=context.summary,
                     writes_enabled=settings.chat_writes_enabled,
                     job_search_enabled=jobs.enabled,
+                    matching_enabled=gateway.enabled,
                 ),
                 context=context,
                 run_id=str(run.id),

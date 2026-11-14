@@ -1,0 +1,14 @@
+name: quiet_applications
+description: '"Which applications have gone quiet?" uses the quiet_for_days filter.'
+seed:
+  opportunities:
+    - {company: Zepto, role: Backend Engineer, stage: applied}
+turns:
+  - say: "Which applications have gone quiet for two weeks?"
+    groq:
+      - verdict: {intent: pipeline}
+      - tool_call: {name: list_opportunities, args: {stage: applied, quiet_for_days: 14}}
+      - reply: "None of your applied roles has been quiet that long."
+    expect:
+      tools: [list_opportunities]
+      contains: ["None of your applied roles"]

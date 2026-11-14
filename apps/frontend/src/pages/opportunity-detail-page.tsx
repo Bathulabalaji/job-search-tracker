@@ -30,6 +30,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToday } from "@/api/dashboard"
+import { ResumeFitCard } from "@/features/detail/resume-fit-card"
 import { ContactsCard, DetailsCard, FollowupsCard } from "@/features/detail/side-cards"
 import { Timeline } from "@/features/detail/timeline"
 import { EditOpportunityDialog } from "@/features/opportunities/edit-opportunity-dialog"
@@ -217,6 +218,7 @@ function Detail({ opportunity }: { opportunity: Opportunity }) {
 
         <div className="min-w-0 space-y-6">
           <DetailsCard opportunity={opportunity} />
+          <ResumeFitCard opportunity={opportunity} />
           <FollowupsCard opportunity={opportunity} today={todayIso} />
           <ContactsCard opportunity={opportunity} />
         </div>

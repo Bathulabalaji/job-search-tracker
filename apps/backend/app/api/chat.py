@@ -14,6 +14,8 @@ from app.schemas.chat import (
     ConversationDetail,
     ConversationRead,
     ConversationUpdate,
+    PreferencesUpdate,
+    QuotaUsageRead,
     RunRead,
     SendMessageRequest,
 )
@@ -29,6 +31,18 @@ SSE_HEADERS = {
 @router.get("/config", response_model=ChatConfig)
 def chat_config(service: ChatServiceDep) -> ChatConfig:
     return service.config()
+
+
+@router.get("/usage", response_model=list[QuotaUsageRead])
+def chat_usage(service: ChatServiceDep) -> list[QuotaUsageRead]:
+    """Every daily allowance this user has, how much is used and when it frees up."""
+    return [QuotaUsageRead(**vars(q)) for q in service.quota_usage()]
+
+
+@router.put("/preferences", response_model=ChatConfig)
+def update_preferences(data: PreferencesUpdate, service: ChatServiceDep) -> ChatConfig:
+    """Switch the AI assistant off (or back on) for this account."""
+    return service.set_opt_out(data.assistant_opt_out)
 
 
 @router.get("/conversations", response_model=list[ConversationRead])

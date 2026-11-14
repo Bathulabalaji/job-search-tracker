@@ -5,6 +5,7 @@ from app.storage.object_store import (
     ObjectStore,
     S3ObjectStore,
     StorageDisabled,
+    StoredObject,
 )
 
 
@@ -30,5 +31,6 @@ __all__ = [
     "ObjectStore",
     "S3ObjectStore",
     "StorageDisabled",
+    "StoredObject",
     "build_object_store",
 ]

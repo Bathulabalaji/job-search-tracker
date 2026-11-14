@@ -1,0 +1,15 @@
+name: capacity_fallback
+description: When Groq is out of quota the same turn finishes on Google, calling the tool once.
+turns:
+  - say: "What's due today?"
+    groq:
+      - verdict: {intent: today}
+      - error: {rate_limited: day}   # the first Groq model is out of quota...
+      - error: {rate_limited: day}   # ...and so is the second
+    google:
+      - tool_call: {name: get_today}
+      - reply: "Nothing is due today."
+    expect:
+      tools: [get_today]
+      contains: ["Nothing is due today"]
+      no_events: [error]

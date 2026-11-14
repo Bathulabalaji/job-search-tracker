@@ -1,0 +1,10 @@
+name: out_of_scope
+description: Off-topic questions are declined with the fixed template and never reach the agent model.
+turns:
+  - say: "Write me a poem about the monsoon"
+    groq:
+      - verdict: {intent: out_of_scope, in_scope: false}
+    expect:
+      tools: []
+      contains: ["I can only help with your job search"]
+      agent_calls: 0

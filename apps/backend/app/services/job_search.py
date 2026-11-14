@@ -142,7 +142,11 @@ class JobSearchService:
 
     # ---- search ---------------------------------------------------------------------------
 
-    def search(self, request: JobSearchRequest) -> JobSearchResponse:
+    def search(
+        self, request: JobSearchRequest, *, count_against_user: bool = True
+    ) -> JobSearchResponse:
+        """`count_against_user=False` is for system-initiated searches (recommendations), which
+        have their own daily allowance; provider quotas still apply either way."""
         if not self.providers:
             raise JobSearchError(
                 "job_search_disabled", "Job search isn't set up on this server yet.", 503
@@ -161,9 +165,10 @@ class JobSearchService:
         if cached is not None:
             return cached
         try:
-            self.limiter.consume(
-                f"job-search:{self.user_id}", self.settings.chat_search_daily_limit, DAY
-            )
+            if count_against_user:
+                self.limiter.consume(
+                    f"job-search:{self.user_id}", self.settings.chat_search_daily_limit, DAY
+                )
         except RateLimitedError as exc:
             limit = self.settings.chat_search_daily_limit
             raise JobSearchQuotaError(
@@ -197,7 +202,7 @@ class JobSearchService:
         )
         self.session.commit()
         return JobSearchResponse(
-            results=self._reads(postings),
+            results=self.reads(postings),
             from_cache=False,
             providers_used=outcome.used,
             notices=notices,
@@ -212,7 +217,7 @@ class JobSearchService:
         if len(postings) != len(previous.result_ids):
             return None  # some were pruned: search again
         return JobSearchResponse(
-            results=self._reads(postings),
+            results=self.reads(postings),
             from_cache=True,
             providers_used=list(previous.providers_used),
             notices=[Notice.model_validate(n) for n in previous.notices or []],
@@ -391,7 +396,7 @@ class JobSearchService:
             posting.active_checked_at = now
         self.session.flush()
 
-    def _reads(self, postings: list[JobPosting], *, full: bool = False) -> list[JobPostingRead]:
+    def reads(self, postings: list[JobPosting], *, full: bool = False) -> list[JobPostingRead]:
         tracked = self.queries.tracked([p.id for p in postings])
         reads: list[JobPostingRead] = []
         for p in postings:
@@ -415,7 +420,7 @@ class JobSearchService:
         return posting
 
     def get(self, posting_id: int) -> JobPostingRead:
-        return self._reads([self._posting(posting_id)], full=True)[0]
+        return self.reads([self._posting(posting_id)], full=True)[0]
 
     def check(self, posting_id: int) -> JobPostingRead:
         posting = self._posting(posting_id)
@@ -423,7 +428,7 @@ class JobSearchService:
             posting.active_status = self.checker.check(posting.apply_url)
             posting.active_checked_at = self.clock.now()
             self.session.commit()
-        return self._reads([posting])[0]
+        return self.reads([posting])[0]
 
     def track(self, posting_id: int, request: TrackJobRequest) -> OpportunityRead:
         posting = self._posting(posting_id)
