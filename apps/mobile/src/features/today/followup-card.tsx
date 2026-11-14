@@ -1,44 +1,54 @@
-import { useState } from "react"
-import { View } from "react-native"
+import { useState } from "react";
+import { View } from "react-native";
 
-import { useUpdateFollowup } from "@/api/followups"
-import type { FollowupChannel, TodayFollowup } from "@/api/types"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Icon, type IconName } from "@/components/ui/icon"
-import { OptionSheet } from "@/components/ui/option-sheet"
-import { Text } from "@/components/ui/text"
-import { addDays, daysUntilNextMonday, formatDate, titleCase } from "@/lib/format"
+import { useUpdateFollowup } from "@/api/followups";
+import type { FollowupChannel, TodayFollowup } from "@/api/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Icon, type IconName } from "@/components/ui/icon";
+import { OptionSheet } from "@/components/ui/option-sheet";
+import { Text } from "@/components/ui/text";
+import { MessageSheet } from "@/features/messaging/message-sheet";
+import {
+  addDays,
+  daysUntilNextMonday,
+  formatDate,
+  titleCase,
+} from "@/lib/format";
 
 const CHANNEL_ICONS: Record<FollowupChannel, IconName> = {
   email: "mail-outline",
   call: "call-outline",
   linkedin: "logo-linkedin",
   whatsapp: "logo-whatsapp",
-}
+};
 
 export function FollowupCard({
   followup,
   today,
   onOpen,
 }: {
-  followup: TodayFollowup
-  today: string
-  onOpen: () => void
+  followup: TodayFollowup;
+  today: string;
+  onOpen: () => void;
 }) {
-  const update = useUpdateFollowup()
-  const [snoozing, setSnoozing] = useState(false)
-  const overdue = followup.days_overdue > 0
+  const update = useUpdateFollowup();
+  const [snoozing, setSnoozing] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const overdue = followup.days_overdue > 0;
 
   const snoozeOptions = [
     { value: 1, label: "Tomorrow" },
     { value: 3, label: "In 3 days" },
     { value: daysUntilNextMonday(today), label: "Next Monday" },
-  ]
+  ];
 
   return (
-    <Card onPress={onOpen} accessibilityLabel={`Follow up with ${followup.company}`}>
+    <Card
+      onPress={onOpen}
+      accessibilityLabel={`Follow up with ${followup.company}`}
+    >
       <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
         <Icon name={CHANNEL_ICONS[followup.channel]} color="primary" />
         <View style={{ flex: 1 }}>
@@ -59,13 +69,24 @@ export function FollowupCard({
           “{followup.message_draft}”
         </Text>
       ) : null}
+      {followup.channel === "email" || followup.channel === "linkedin" ? (
+        <Button
+          label="Draft message"
+          icon="create-outline"
+          size="sm"
+          variant="secondary"
+          onPress={() => setComposing(true)}
+        />
+      ) : null}
       <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
         <Button
           label="Done"
           icon="checkmark"
           size="sm"
           style={{ flex: 1 }}
-          loading={update.isPending && update.variables?.patch.status === "done"}
+          loading={
+            update.isPending && update.variables?.patch.status === "done"
+          }
           onPress={() =>
             update.mutate({
               id: followup.id,
@@ -84,6 +105,20 @@ export function FollowupCard({
           onPress={() => setSnoozing(true)}
         />
       </View>
+      {composing ? (
+        <MessageSheet
+          visible
+          onClose={() => setComposing(false)}
+          opportunity={{
+            id: followup.opportunity_id,
+            company: followup.company,
+            role: followup.role,
+          }}
+          initial={{
+            channel: followup.channel === "linkedin" ? "linkedin" : "email",
+          }}
+        />
+      ) : null}
       <OptionSheet
         visible={snoozing}
         title="Snooze until…"
@@ -102,5 +137,5 @@ export function FollowupCard({
         onClose={() => setSnoozing(false)}
       />
     </Card>
-  )
+  );
 }

@@ -13,6 +13,7 @@ from app.api import (
     internal,
     jobs,
     matching,
+    messaging,
     opportunities,
     prep_items,
     recommendations,
@@ -45,6 +46,7 @@ for module in (
     chat,
     jobs,
     matching,
+    messaging,
     recommendations,
 ):
     api_router.include_router(module.router, dependencies=_protected)

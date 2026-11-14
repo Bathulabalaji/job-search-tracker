@@ -26,7 +26,7 @@ def usage(chat: ChatHarness) -> dict[str, dict[str, object]]:
 def test_usage_lists_every_allowance_and_counts_what_is_used(chat: ChatHarness) -> None:
     before = usage(chat)
     # job search isn't configured in this harness, so its allowances are not offered
-    assert set(before) == {"messages", "matches", "reindex"}
+    assert set(before) == {"messages", "matches", "polish", "reindex"}
     assert before["messages"]["limit"] == chat.settings.chat_daily_messages
     assert before["messages"]["used"] == 0 and before["messages"]["resets_at"] is None
 

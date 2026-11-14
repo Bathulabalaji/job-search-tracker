@@ -78,6 +78,12 @@ def test_golden_conversation(
         created = chat.client.post("/api/v1/opportunities", json=opp)
         assert created.status_code == 201, created.text
         opp_ids[opp["company"]] = int(created.json()["id"])
+    for contact in (case.get("seed") or {}).get("contacts", []):
+        made = chat.client.post(
+            "/api/v1/contacts",
+            json={**contact, "opportunity_id": opp_ids[contact.pop("opportunity")]},
+        )
+        assert made.status_code == 201, made.text
     if case.get("jobs"):
         jobs_api.append(
             FakeJobProvider("serpapi", [hit(j["company"], j["title"]) for j in case["jobs"]])

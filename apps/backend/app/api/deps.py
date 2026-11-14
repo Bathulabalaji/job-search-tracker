@@ -31,6 +31,7 @@ from app.services.followup import FollowupService
 from app.services.interaction import InteractionService
 from app.services.job_match import JobMatchService
 from app.services.job_search import JobSearchService
+from app.services.messaging import MessagingService
 from app.services.opportunity import OpportunityService
 from app.services.prep_item import PrepItemService
 from app.services.recommendations import RecommendationService
@@ -141,6 +142,22 @@ def get_job_search_service(
 
 
 JobSearchServiceDep = Annotated[JobSearchService, Depends(get_job_search_service)]
+
+
+# ---- outreach messages ------------------------------------------------------------------------
+
+
+def get_messaging_service(
+    db: DbSession,
+    clock: ClockDep,
+    settings: SettingsDep,
+    user: CurrentUser,
+    gateway: LLMGatewayDep,
+) -> MessagingService:
+    return MessagingService(db, clock, settings, user.id, gateway)
+
+
+MessagingServiceDep = Annotated[MessagingService, Depends(get_messaging_service)]
 
 
 # ---- resume matching and recommendations (Phase 4) --------------------------------------------

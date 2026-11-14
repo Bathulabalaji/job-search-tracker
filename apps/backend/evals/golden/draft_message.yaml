@@ -1,0 +1,20 @@
+name: draft_message
+description: >
+  A follow-up request becomes a draft card from the suggested template, to the right contact. The
+  assistant cannot send it, so nothing is written to the pipeline.
+seed:
+  opportunities:
+    - {company: Zepto, role: Backend Engineer, stage: found}
+  contacts:
+    - {opportunity: Zepto, name: Riya Sharma, role: recruiter, email: riya@zepto.example}
+turns:
+  - say: "Draft a message to the Zepto recruiter"
+    groq:
+      - verdict: {intent: contacts}
+      - tool_call: {name: draft_message, args: {opportunity_id: "{opp:Zepto}"}}
+      - reply: "Here is an introduction to Riya at Zepto. Review it and send it from your mail app."
+    expect:
+      tools: [draft_message]
+      events: [cards]
+      no_events: [confirmation_required, error]
+      contains: ["Riya"]

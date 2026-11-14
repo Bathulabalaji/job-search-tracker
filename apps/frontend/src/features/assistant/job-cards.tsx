@@ -11,12 +11,13 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
-import type { ChatAttachment, JobCardData, MatchCardData } from "@/api/chat"
+import type { ChatAttachment, DraftCardData, JobCardData, MatchCardData } from "@/api/chat"
 import { ApiError } from "@/api/client"
 import { useTrackJob } from "@/api/jobs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MatchBreakdown } from "@/features/matching/match-breakdown"
+import { MessageDialog } from "@/features/messaging/message-dialog"
 import { cn } from "@/lib/utils"
 
 const SITE_LABELS: Record<string, string> = {
@@ -160,6 +161,40 @@ function MatchCard({ match }: { match: MatchCardData }) {
   )
 }
 
+function DraftCard({ draft }: { draft: DraftCardData }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <li className="space-y-2 rounded-lg border bg-muted/30 p-3">
+      <p className="text-sm font-medium">
+        Draft · {draft.template_name}
+        {draft.to_name ? (
+          <span className="font-normal text-muted-foreground"> to {draft.to_name}</span>
+        ) : null}
+      </p>
+      {draft.subject ? <p className="text-sm">Subject: {draft.subject}</p> : null}
+      <p className="line-clamp-6 whitespace-pre-wrap text-sm text-muted-foreground">{draft.body}</p>
+      {draft.missing.length > 0 ? (
+        <p className="text-xs text-amber-700 dark:text-amber-300">
+          Still to fill in: {draft.missing.join(", ")}
+        </p>
+      ) : null}
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setOpen(true)}>
+          Edit and send
+        </Button>
+      </div>
+      {open ? (
+        <MessageDialog
+          open
+          onOpenChange={setOpen}
+          opportunity={{ id: draft.opportunity_id, company: draft.company, role: draft.role }}
+          initial={{ templateKey: draft.template_key, channel: draft.channel }}
+        />
+      ) : null}
+    </li>
+  )
+}
+
 export function AttachmentList({
   items,
   className,
@@ -169,11 +204,15 @@ export function AttachmentList({
 }) {
   const jobs = items.filter((a): a is JobCardData => a.type === "job")
   const matches = items.filter((a): a is MatchCardData => a.type === "match")
-  if (!jobs.length && !matches.length) return null
+  const drafts = items.filter((a): a is DraftCardData => a.type === "draft")
+  if (!jobs.length && !matches.length && !drafts.length) return null
   return (
     <ul className={cn("mt-3 grid gap-2", className)} aria-label="Results">
       {matches.map((match) => (
         <MatchCard key={`${match.target}-${match.target_id}`} match={match} />
+      ))}
+      {drafts.map((draft) => (
+        <DraftCard key={`${draft.opportunity_id}-${draft.template_key}`} draft={draft} />
       ))}
       {jobs.map((job) => (
         <JobCard key={job.id} job={job} />

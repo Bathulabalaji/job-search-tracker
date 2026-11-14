@@ -5,6 +5,7 @@ import { useWeeklyAnalytics } from "@/api/analytics"
 import type { Metric, Scorecard } from "@/api/types"
 import { EmptyState } from "@/components/common/empty-state"
 import { ErrorState } from "@/components/common/error-state"
+import { MessageResultsCard } from "@/features/messaging/message-results-card"
 import { PageHeader } from "@/components/common/page-header"
 import { Button } from "@/components/ui/button"
 import {
@@ -156,6 +157,7 @@ export function AnalyticsPage() {
           className={isPlaceholderData ? "space-y-6 opacity-60 transition-opacity" : "space-y-6"}
         >
           <ScorecardRow card={data.scorecard} />
+          <MessageResultsCard />
 
           <Card>
             <CardHeader>

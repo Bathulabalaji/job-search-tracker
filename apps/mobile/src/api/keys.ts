@@ -33,6 +33,23 @@ export const queryKeys = {
     ["analytics", "weekly", weekOf ?? "current"] as const,
   analytics: ["analytics"] as const,
   prepItems: ["prep-items"] as const,
+  messaging: {
+    all: ["messaging"] as const,
+    templates: ["messaging", "templates"] as const,
+    profile: ["messaging", "profile"] as const,
+    stats: ["messaging", "stats"] as const,
+    suggestions: (opportunityId: number) =>
+      ["messaging", "suggestions", opportunityId] as const,
+    sent: (opportunityId: number) =>
+      ["messaging", "sent", opportunityId] as const,
+    preview: (
+      opportunityId: number,
+      key: string,
+      channel: string,
+      contactId: number | null,
+    ) =>
+      ["messaging", "preview", opportunityId, key, channel, contactId] as const,
+  },
   matching: (opportunityId: number) => ["matching", opportunityId] as const,
   recommendations: {
     all: ["recommendations"] as const,

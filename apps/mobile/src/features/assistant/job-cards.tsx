@@ -3,13 +3,19 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 
-import type { ChatAttachment, JobCardData, MatchCardData } from "@/api/chat";
+import type {
+  ChatAttachment,
+  DraftCardData,
+  JobCardData,
+  MatchCardData,
+} from "@/api/chat";
 import { ApiError } from "@/api/client";
 import { useTrackJob } from "@/api/jobs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { MatchBreakdown } from "@/features/matching/match-breakdown";
+import { MessageSheet } from "@/features/messaging/message-sheet";
 import { haptics } from "@/lib/haptics";
 import { toast } from "@/lib/toast-bus";
 import { radius } from "@/theme/tokens";
@@ -203,14 +209,73 @@ function MatchCard({ match }: { match: MatchCardData }) {
   );
 }
 
+function DraftCard({ draft }: { draft: DraftCardData }) {
+  const { colors } = useTheme();
+  const [open, setOpen] = useState(false);
+  return (
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.md,
+        backgroundColor: colors.surfaceRaised,
+        padding: 12,
+        gap: 6,
+      }}
+    >
+      <Text style={{ fontWeight: "600" }}>
+        Draft · {draft.template_name}
+        {draft.to_name ? ` to ${draft.to_name}` : ""}
+      </Text>
+      {draft.subject ? (
+        <Text variant="small">Subject: {draft.subject}</Text>
+      ) : null}
+      <Text variant="small" tone="muted" numberOfLines={6}>
+        {draft.body}
+      </Text>
+      {draft.missing.length > 0 ? (
+        <Text variant="caption" tone="muted">
+          Still to fill in: {draft.missing.join(", ")}
+        </Text>
+      ) : null}
+      <Button
+        label="Edit and send"
+        icon="create-outline"
+        size="sm"
+        fullWidth={false}
+        onPress={() => setOpen(true)}
+      />
+      {open ? (
+        <MessageSheet
+          visible
+          onClose={() => setOpen(false)}
+          opportunity={{
+            id: draft.opportunity_id,
+            company: draft.company,
+            role: draft.role,
+          }}
+          initial={{ templateKey: draft.template_key, channel: draft.channel }}
+        />
+      ) : null}
+    </View>
+  );
+}
+
 export function AttachmentList({ items }: { items: ChatAttachment[] }) {
   const jobs = items.filter((a): a is JobCardData => a.type === "job");
   const matches = items.filter((a): a is MatchCardData => a.type === "match");
-  if (!jobs.length && !matches.length) return null;
+  const drafts = items.filter((a): a is DraftCardData => a.type === "draft");
+  if (!jobs.length && !matches.length && !drafts.length) return null;
   return (
     <View style={{ gap: 8, marginTop: 4 }} accessibilityLabel="Results">
       {matches.map((match) => (
         <MatchCard key={`${match.target}-${match.target_id}`} match={match} />
+      ))}
+      {drafts.map((draft) => (
+        <DraftCard
+          key={`${draft.opportunity_id}-${draft.template_key}`}
+          draft={draft}
+        />
       ))}
       {jobs.map((job) => (
         <JobCard key={job.id} job={job} />

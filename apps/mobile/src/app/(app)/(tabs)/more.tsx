@@ -9,7 +9,7 @@ import { useUser } from "@/features/auth/auth-context";
 import { haptics } from "@/lib/haptics";
 import { useTheme } from "@/theme/theme";
 
-type Href = "/assistant" | "/recommendations" | "/prep" | "/contacts" | "/account";
+type Href = "/assistant" | "/recommendations" | "/templates" | "/prep" | "/contacts" | "/account";
 
 const ITEMS: { href: Href; icon: IconName; title: string; subtitle: string }[] =
   [
@@ -24,6 +24,12 @@ const ITEMS: { href: Href; icon: IconName; title: string; subtitle: string }[] =
       icon: "telescope-outline",
       title: "Jobs for you",
       subtitle: "Fresh postings ranked against your resumes",
+    },
+    {
+      href: "/templates",
+      icon: "mail-outline",
+      title: "Message templates",
+      subtitle: "Follow-ups and outreach for email and LinkedIn",
     },
     {
       href: "/prep",

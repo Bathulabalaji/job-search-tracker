@@ -72,3 +72,7 @@ class QuotaError(RateLimitedError):
         super().__init__(retry_after_seconds)
         self.code = code
         self.message = message
+
+
+class MessagingError(AuthError):
+    """A drafting or template problem the user can fix (unknown template, bad placeholder...)."""

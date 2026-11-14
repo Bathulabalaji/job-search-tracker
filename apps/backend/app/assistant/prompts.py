@@ -2,7 +2,7 @@
 
 from datetime import date
 
-PROMPT_VERSION = "2026-11-14.3"
+PROMPT_VERSION = "2026-11-15.1"
 
 DECLINE_MESSAGE = (
     "I can only help with your job search in this app: your pipeline, follow-ups, "
@@ -78,6 +78,11 @@ def system_prompt(
             if matching_enabled
             else []
         ),
+        "- draft_message writes a follow-up, thank-you or outreach email or LinkedIn message for "
+        "an opportunity from the user's own details. It appears as a card the user edits and "
+        "sends themselves; you cannot send anything. Say in one line what it is for and why now "
+        "(the tool gives the reason). If it lists gaps, tell the user what to fill in. Never "
+        "invent facts about the user to fill a gap.",
         "- Politely decline anything unrelated to the user's job search or this app.",
         "",
         "How you answer:",

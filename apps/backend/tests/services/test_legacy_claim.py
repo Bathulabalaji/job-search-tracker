@@ -114,6 +114,9 @@ def test_the_claim_covers_every_per_user_table(
         "job_matches",
         "job_search_profiles",
         "job_recommendations",
+        "outreach_profiles",
+        "message_templates",
+        "outreach_messages",
     }
 
 

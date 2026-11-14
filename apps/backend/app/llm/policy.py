@@ -18,6 +18,7 @@ class Task(StrEnum):
     injection_screen = "injection_screen"  # classify fetched text before the model sees it
     summarize = "summarize"  # rolling conversation summary, tool-result compaction
     extract_structured = "extract.structured"  # resume profile, match scoring (JSON schema)
+    message_polish = "message.polish"  # rewrite a drafted outreach message (JSON schema)
 
 
 Policy = dict[Task, tuple[str, ...]]
@@ -36,6 +37,11 @@ DEFAULT_POLICY: Policy = {
     Task.summarize: ("openai/gpt-oss-20b", "gemini-3.5-flash-lite"),
     Task.extract_structured: (
         "gemini-3.5-flash-lite",  # native JSON schema mode and room for long inputs
+        "gemini-3.1-flash-lite",
+        "openai/gpt-oss-120b",
+    ),
+    Task.message_polish: (
+        "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
         "openai/gpt-oss-120b",
     ),

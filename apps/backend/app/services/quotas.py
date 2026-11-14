@@ -58,6 +58,13 @@ def buckets(settings: Settings, user_id: int) -> list[Bucket]:
             settings.llm_enabled and settings.job_search_enabled,
         ),
         Bucket(
+            "polish",
+            f"polish:{user_id}",
+            "AI message rewrites",
+            settings.message_polish_daily_limit,
+            settings.llm_enabled,
+        ),
+        Bucket(
             "reindex",
             f"resume-process:{user_id}",
             "Resume re-indexing",

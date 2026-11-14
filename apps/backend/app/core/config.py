@@ -128,6 +128,10 @@ class Settings(BaseSettings):
     job_active_check_timeout_seconds: float = 5.0
     chat_search_daily_limit: int = 10  # live searches per user per day
 
+    # ---- Outreach messages -------------------------------------------------------------------
+    message_polish_daily_limit: int = 20  # AI rewrites per user per day
+    message_templates_max: int = 50  # templates a user may create or edit
+
     # ---- Retention and maintenance (Phase 5) --------------------------------------------------
     # POST /internal/maintenance is off (404) until a secret is set; a scheduled job calls it.
     maintenance_secret: str = ""

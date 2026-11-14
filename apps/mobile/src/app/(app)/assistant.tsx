@@ -60,6 +60,7 @@ const TOOL_LABELS: Record<string, string> = {
   get_recommendations: "Jobs for you",
   refresh_recommendations: "Finding new jobs",
   set_fit_score: "Set fit score",
+  draft_message: "Draft message",
   move_opportunity: "Move stage",
   add_followup: "Add follow-up",
   mark_followup: "Update follow-up",

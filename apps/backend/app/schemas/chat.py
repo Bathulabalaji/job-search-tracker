@@ -112,7 +112,7 @@ class QuotaRead(BaseModel):
 
 
 class QuotaUsageRead(BaseModel):
-    name: str  # messages | searches | matches | recommendations | reindex
+    name: str  # messages | searches | matches | recommendations | polish | reindex
     label: str
     limit: int
     used: int

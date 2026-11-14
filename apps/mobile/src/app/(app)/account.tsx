@@ -10,6 +10,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control"
 import { Text } from "@/components/ui/text"
 import { WEB_URL } from "@/config/env"
 import { useAuth, useUser } from "@/features/auth/auth-context"
+import { OutreachProfileSheet } from "@/features/messaging/outreach-profile-sheet"
 import { AssistantPrivacySection } from "@/features/assistant/assistant-privacy-section"
 import { ChangePasswordSheet, EditNameSheet } from "@/features/auth/account-forms"
 import {
@@ -34,6 +35,7 @@ export default function AccountScreen() {
   const remindersOn = useReminderSetting()
   const [editingName, setEditingName] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+  const [outreach, setOutreach] = useState(false)
 
   const toggleReminders = async (next: boolean) => {
     if (!next) {
@@ -113,6 +115,16 @@ export default function AccountScreen() {
         </View>
       ) : null}
 
+      <View style={{ gap: 10 }}>
+        <SectionHeader title="Messages" />
+        <Button
+          label="Outreach details"
+          icon="mail-outline"
+          variant="secondary"
+          onPress={() => setOutreach(true)}
+        />
+      </View>
+
       <AssistantPrivacySection />
 
       <View style={{ gap: 10 }}>
@@ -139,6 +151,7 @@ export default function AccountScreen() {
         </Text>
       </View>
 
+      <OutreachProfileSheet visible={outreach} onClose={() => setOutreach(false)} />
       <EditNameSheet visible={editingName} user={user} onClose={() => setEditingName(false)} />
       <ChangePasswordSheet visible={changingPassword} onClose={() => setChangingPassword(false)} />
     </Screen>

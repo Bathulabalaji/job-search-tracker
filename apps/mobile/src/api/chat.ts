@@ -48,7 +48,23 @@ export interface MatchCardData extends MatchResult {
   type: "match";
 }
 
-export type ChatAttachment = JobCardData | MatchCardData;
+/** A message the assistant drafted. The user edits and sends it from the composer. */
+export interface DraftCardData {
+  type: "draft";
+  opportunity_id: number;
+  company: string;
+  role: string;
+  template_key: string;
+  template_name: string;
+  channel: "email" | "linkedin" | "linkedin_note";
+  to: string | null;
+  to_name: string | null;
+  subject: string | null;
+  body: string;
+  missing: string[];
+}
+
+export type ChatAttachment = JobCardData | MatchCardData | DraftCardData;
 
 export interface ChatConversation {
   id: number;

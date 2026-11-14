@@ -27,6 +27,7 @@ export default function AppLayout() {
       />
       <Stack.Screen name="assistant" options={{ title: "Assistant" }} />
       <Stack.Screen name="recommendations" options={{ title: "Jobs for you" }} />
+      <Stack.Screen name="templates" options={{ title: "Message templates" }} />
       <Stack.Screen name="prep" options={{ title: "Interview prep" }} />
       <Stack.Screen name="contacts" options={{ title: "Contacts & Resumes" }} />
       <Stack.Screen name="account" options={{ title: "Account" }} />

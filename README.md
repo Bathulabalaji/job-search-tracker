@@ -43,7 +43,7 @@ Layout: `app/api` (routers), `app/services`, `app/repositories`, `app/models`, `
 | --- | --- | --- | --- |
 | Health endpoint | any | `curl http://localhost:8000/api/v1/health` | `{"status":"ok"}` |
 | OpenAPI docs | browser | <http://localhost:8000/docs> | Swagger UI listing health, opportunities, contacts, interactions, followups |
-| Tests | `apps/backend` | `uv run pytest` | 594 passed |
+| Tests | `apps/backend` | `uv run pytest` | 709 passed |
 | Types | `apps/backend` | `uv run mypy` | `Success: no issues found` |
 | Lint | `apps/backend` | `uv run ruff check .` | `All checks passed!` |
 | Alembic connects | `apps/backend` | `uv run alembic current` | `0004 (head)` after you run the migration below |
@@ -82,7 +82,7 @@ The script has four independent sections, and each runs only if that account has
 From `apps/backend`:
 
 ```bash
-uv run pytest            # 594 tests
+uv run pytest            # 709 tests
 uv run pytest tests/unit # pure rules only, no database needed
 ```
 
@@ -442,6 +442,19 @@ prompt). Logs carry the same fields under the `llm_call` event. Optional LangSmi
   `job_search_profiles` and `job_recommendations`.
 - **Assistant tools**: `which_resume_fits`, `get_recommendations`, `refresh_recommendations`,
   and the confirmed write tool `set_fit_score`.
+
+### Follow-up and outreach messages
+
+From any opportunity, **Messages** shows what to send next and why (for example "6 working days
+since you applied with no reply"), writes it from the opportunity, the contact and your details,
+and opens it in your own mail app, Gmail or LinkedIn. Choose **I sent it** and the app logs the
+contact, closes the reminder and schedules the next one; **They replied** stops the nudging.
+Fourteen ready-made templates cover reaching out, after applying, screening, interviews, offers
+and closing; edit any of them or write your own (Contacts & Resumes, Message templates), and use
+**Improve with AI** to tighten or warm a draft. *Send from* in Account > Outreach details sets the
+address that signs your messages and picks the Google account for the Gmail link. Nothing is ever
+sent for you, and a mail link can't attach your resume or choose the sending account.
+See `docs/OUTREACH_TEMPLATES.md` for the template list, the cadence and the limits.
 
 ### Limits, privacy and operations (Phase 5)
 

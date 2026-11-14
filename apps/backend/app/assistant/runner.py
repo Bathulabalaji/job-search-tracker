@@ -49,6 +49,7 @@ from app.repositories.chat import ConversationRepository, MessageRepository, Run
 from app.repositories.chat_action import PendingActionRepository
 from app.services.job_match import JobMatchService
 from app.services.job_search import JobSearchService
+from app.services.messaging import MessagingService
 from app.services.recommendations import RecommendationService
 
 logger = logging.getLogger("app.assistant")
@@ -185,6 +186,9 @@ class _Turn:
             recs = RecommendationService(
                 self.session, owner.clock, settings, owner.user_id, gateway, jobs
             )
+            messaging = MessagingService(
+                self.session, owner.clock, settings, owner.user_id, gateway
+            )
             deps = AgentDeps(
                 gateway=gateway,
                 tools=build_read_tools(
@@ -197,6 +201,7 @@ class _Turn:
                     jobs=jobs,
                     matching=matching,
                     recs=recs,
+                    messaging=messaging,
                 ),
                 write_tools=(
                     build_write_tools(self.session, owner.clock, settings, owner.user_id, jobs=jobs)

@@ -1,4 +1,14 @@
-import { Check, Clock, Mail, MessageCircle, Phone, Users, type LucideIcon } from "lucide-react"
+import {
+  Check,
+  Clock,
+  Mail,
+  MessageCircle,
+  PenLine,
+  Phone,
+  Users,
+  type LucideIcon,
+} from "lucide-react"
+import { useState } from "react"
 import { Link } from "react-router-dom"
 
 import { useUpdateFollowup } from "@/api/followups"
@@ -11,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { MessageDialog } from "@/features/messaging/message-dialog"
 import { addDays, daysUntilNextMonday, formatDate, titleCase } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -28,6 +39,7 @@ interface FollowupRowProps {
 
 export function FollowupRow({ followup, today }: FollowupRowProps) {
   const update = useUpdateFollowup()
+  const [composing, setComposing] = useState(false)
   const ChannelIcon = CHANNEL_ICONS[followup.channel]
   const overdue = followup.days_overdue > 0
 
@@ -92,6 +104,12 @@ export function FollowupRow({ followup, today }: FollowupRowProps) {
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0">
+        {followup.channel === "email" || followup.channel === "linkedin" ? (
+          <Button variant="ghost" size="sm" onClick={() => setComposing(true)}>
+            <PenLine />
+            Draft message
+          </Button>
+        ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" disabled={update.isPending}>
@@ -112,6 +130,18 @@ export function FollowupRow({ followup, today }: FollowupRowProps) {
           Done
         </Button>
       </div>
+      {composing ? (
+        <MessageDialog
+          open
+          onOpenChange={setComposing}
+          opportunity={{
+            id: followup.opportunity_id,
+            company: followup.company,
+            role: followup.role,
+          }}
+          initial={{ channel: followup.channel === "linkedin" ? "linkedin" : "email" }}
+        />
+      ) : null}
     </li>
   )
 }

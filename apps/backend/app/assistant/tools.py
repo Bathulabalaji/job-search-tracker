@@ -26,6 +26,7 @@ from app.models.enums import FollowupStatus, PrepCategory, PrepStatus, Source, S
 from app.repositories.resume_chunk import ResumeChunkRepository
 from app.schemas.job import JobPostingRead, JobSearchRequest
 from app.schemas.match import MatchResult
+from app.schemas.messaging import PreviewRequest
 from app.services.analytics import AnalyticsService
 from app.services.contact import ContactService
 from app.services.dashboard import DashboardService
@@ -33,6 +34,7 @@ from app.services.followup import FollowupService
 from app.services.interaction import InteractionService
 from app.services.job_match import JobMatchService
 from app.services.job_search import JobSearchService
+from app.services.messaging import MessagingService
 from app.services.opportunity import OpportunityService
 from app.services.prep_item import PrepItemService
 from app.services.recommendations import RecommendationService
@@ -173,6 +175,15 @@ class WhichResumeArgs(BaseModel):
         return self
 
 
+class DraftMessageArgs(BaseModel):
+    opportunity_id: int
+    template_key: str | None = Field(
+        None, description="A key from the suggestions (sys:follow_up_1). Omit for what is due next."
+    )
+    channel: Literal["email", "linkedin", "linkedin_note"] = "email"
+    contact_id: int | None = None
+
+
 class RecommendationsArgs(BaseModel):
     limit: int = Field(5, ge=1, le=10)
 
@@ -230,6 +241,7 @@ def build_read_tools(
     jobs: JobSearchService | None = None,
     matching: JobMatchService | None = None,
     recs: RecommendationService | None = None,
+    messaging: MessagingService | None = None,
 ) -> dict[str, AssistantTool]:
     opportunities = OpportunityService(session, clock, settings, user_id)
     dashboard = DashboardService(session, clock, user_id)
@@ -581,6 +593,57 @@ def build_read_tools(
             "_cards": [match_card(result)],
         }
 
+    def draft_message(raw: BaseModel) -> dict[str, Any]:
+        assert messaging is not None
+        a = DraftMessageArgs.model_validate(raw.model_dump())
+        advice = messaging.suggestions(a.opportunity_id)
+        options = [
+            {
+                "template_key": s.template_key,
+                "title": s.title,
+                "channel": s.channel,
+                "why": s.reason,
+                "send_now": s.due,
+                "kind": s.kind,
+            }
+            for s in advice.suggestions[:4]
+        ]
+        key = a.template_key or next(
+            (s.template_key for s in advice.suggestions if s.kind == "send" and s.due), None
+        )
+        if key is None:
+            return {"suggestions": options, "note": "Nothing is due to send right now."}
+        suggested = next((s for s in advice.suggestions if s.template_key == key), None)
+        contact = a.contact_id or (suggested.contact_id if suggested else None)
+        draft = messaging.preview(
+            a.opportunity_id,
+            PreviewRequest(template_key=key, channel=a.channel, contact_id=contact),
+        )
+        opp = opportunities.get(a.opportunity_id)
+        return {
+            "suggestions": options,
+            "template": draft.template_name,
+            "to": draft.to_name,
+            "gaps": [m.label for m in draft.missing] or None,
+            "warnings": draft.warnings or None,
+            "_cards": [
+                {
+                    "type": "draft",
+                    "opportunity_id": a.opportunity_id,
+                    "company": opp.company,
+                    "role": opp.role,
+                    "template_key": key,
+                    "template_name": draft.template_name,
+                    "channel": draft.channel,
+                    "to": draft.to,
+                    "to_name": draft.to_name,
+                    "subject": draft.subject,
+                    "body": draft.body,
+                    "missing": [m.label for m in draft.missing],
+                }
+            ],
+        }
+
     def get_recommendations(raw: BaseModel) -> dict[str, Any]:
         assert recs is not None
         a = RecommendationsArgs.model_validate(raw.model_dump())
@@ -728,6 +791,20 @@ def build_read_tools(
                 lambda r: f"still open: {r['still_open']}",
             ),
         ]
+    if messaging is not None:
+        tools.append(
+            AssistantTool(
+                "draft_message",
+                "Draft a follow-up or outreach email or LinkedIn message for an opportunity, "
+                "filled from the opportunity, its contact and the user's profile. With no "
+                "template_key it picks what is due next. The user sees the draft as a card and "
+                "sends it themselves; you cannot send anything. Do not paste the draft again.",
+                DraftMessageArgs,
+                draft_message,
+                lambda r: str(r.get("template") or "nothing due"),
+                max_chars=1_800,
+            )
+        )
     if matching is not None and gateway is not None and gateway.enabled:
         tools.append(
             AssistantTool(
@@ -789,14 +866,15 @@ WRITE = (
     "set_fit_score",
 )
 FITS = ("which_resume_fits", "get_recommendations", "refresh_recommendations")
+OUTREACH = ("draft_message",)
 JOBS = ("search_jobs", "check_job_active", "add_job_to_pipeline")
 TOOLSETS: dict[str, tuple[str, ...]] = {
     "today": CORE + ("list_followups",) + WRITE,
-    "pipeline": CORE + ("list_followups",) + WRITE,
-    "followups": CORE + ("list_followups",) + WRITE,
+    "pipeline": CORE + ("list_followups",) + WRITE + OUTREACH,
+    "followups": CORE + ("list_followups", "list_contacts") + WRITE + OUTREACH,
     "write": CORE + ("list_followups", "list_contacts") + WRITE,
     "analytics": ("get_weekly_analytics", "get_pipeline_summary", "list_opportunities"),
-    "contacts": ("list_contacts", "list_opportunities", "get_opportunity"),
+    "contacts": ("list_contacts", "list_opportunities", "get_opportunity") + OUTREACH,
     "prep": ("list_prep_items", "list_opportunities", "get_opportunity"),
     "resumes": (
         "list_resumes",
@@ -829,6 +907,7 @@ ALL_TOOLS = (
     + WRITE
     + JOBS
     + FITS
+    + OUTREACH
 )
 
 
