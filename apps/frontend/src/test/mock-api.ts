@@ -32,7 +32,12 @@ export function mockApi(routes: Record<string, Handler>) {
     const call: RecordedCall = {
       method,
       path,
-      body: typeof init?.body === "string" ? (JSON.parse(init.body) as unknown) : undefined,
+      body:
+        typeof init?.body === "string"
+          ? (JSON.parse(init.body) as unknown)
+          : init?.body instanceof FormData
+            ? Object.fromEntries(init.body.entries())
+            : undefined,
       headers: (init?.headers ?? {}) as Record<string, string>,
       credentials: init?.credentials,
     }

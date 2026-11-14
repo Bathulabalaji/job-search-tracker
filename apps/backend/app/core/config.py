@@ -92,6 +92,21 @@ class Settings(BaseSettings):
     embedding_model: str = "gemini-embedding-001"
     embedding_dims: int = 768
 
+    # ---- Resume files (Phase 2) -------------------------------------------------------------
+    # S3-compatible object storage (Cloudflare R2 in production). Blank bucket = uploads off,
+    # unless OBJECT_STORE_LOCAL_DIR points at a folder for local development.
+    object_store_endpoint_url: str = ""
+    object_store_bucket: str = ""
+    object_store_access_key_id: str = ""
+    object_store_secret_access_key: str = ""
+    object_store_region: str = "auto"
+    object_store_local_dir: str = ""
+    object_store_presign_seconds: int = 600
+    resume_max_file_mb: int = 5
+    resume_max_pages: int = 10
+    resume_max_documents: int = 3  # uploaded files per user
+    resume_process_daily_limit: int = 5  # manual re-index requests per user
+
     @property
     def frontend_is_local(self) -> bool:
         return (urlparse(self.frontend_url).hostname or "") in LOCAL_HOSTS

@@ -8,7 +8,7 @@ from app.models.interaction import Interaction
 from app.models.opportunity import Opportunity
 from app.models.prep_item import PrepItem
 from app.models.provider_ledger import ProviderResourceState, ProviderUsageEvent
-from app.models.resume import Resume
+from app.models.resume import Resume, ResumeChunk
 from app.models.user import User
 from app.models.weekly_target import WeeklyTarget
 
@@ -29,6 +29,7 @@ __all__ = [
     "ProviderUsageEvent",
     "RateLimitEvent",
     "Resume",
+    "ResumeChunk",
     "User",
     "UserSession",
     "WeeklyTarget",

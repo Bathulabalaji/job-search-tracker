@@ -16,11 +16,13 @@ from app.api.auth_deps import (
     get_llm_providers,
     get_session_scope,
 )
+from app.api.deps import get_object_store
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.llm.catalog import Provider
 from app.llm.providers.fake import FakeProvider
 from app.main import app
+from app.storage.object_store import InMemoryObjectStore
 from tests.llm.helpers import MovableClock
 
 
@@ -32,6 +34,7 @@ class ChatHarness:
     clock: MovableClock
     checkpointer: InMemorySaver
     settings: Settings
+    store: InMemoryObjectStore
 
 
 @pytest.fixture
@@ -44,6 +47,8 @@ def chat(db: Session, chat_settings: Settings) -> Iterator[ChatHarness]:
     clock = MovableClock()
     groq, google = FakeProvider("groq"), FakeProvider("google")
     saver = InMemorySaver()
+    store = InMemoryObjectStore()
+    app.dependency_overrides[get_object_store] = lambda: store
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_clock] = lambda: clock.clock
     app.dependency_overrides[get_settings] = lambda: chat_settings
@@ -55,7 +60,7 @@ def chat(db: Session, chat_settings: Settings) -> Iterator[ChatHarness]:
     app.dependency_overrides[get_session_scope] = lambda: lambda: nullcontext(db)
     app.dependency_overrides[get_checkpointer] = lambda: saver
     try:
-        yield ChatHarness(TestClient(app), groq, google, clock, saver, chat_settings)
+        yield ChatHarness(TestClient(app), groq, google, clock, saver, chat_settings, store)
     finally:
         app.dependency_overrides.clear()
 

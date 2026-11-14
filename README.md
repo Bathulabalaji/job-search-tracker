@@ -43,7 +43,7 @@ Layout: `app/api` (routers), `app/services`, `app/repositories`, `app/models`, `
 | --- | --- | --- | --- |
 | Health endpoint | any | `curl http://localhost:8000/api/v1/health` | `{"status":"ok"}` |
 | OpenAPI docs | browser | <http://localhost:8000/docs> | Swagger UI listing health, opportunities, contacts, interactions, followups |
-| Tests | `apps/backend` | `uv run pytest` | 484 passed |
+| Tests | `apps/backend` | `uv run pytest` | 501 passed |
 | Types | `apps/backend` | `uv run mypy` | `Success: no issues found` |
 | Lint | `apps/backend` | `uv run ruff check .` | `All checks passed!` |
 | Alembic connects | `apps/backend` | `uv run alembic current` | `0004 (head)` after you run the migration below |
@@ -82,7 +82,7 @@ The script has four independent sections, and each runs only if that account has
 From `apps/backend`:
 
 ```bash
-uv run pytest            # 484 tests
+uv run pytest            # 501 tests
 uv run pytest tests/unit # pure rules only, no database needed
 ```
 
@@ -353,9 +353,34 @@ a card first** and nothing is written until the user confirms it (editable field
 - **Checkpoints**: LangGraph keeps run state in Postgres (tables `checkpoints`,
   `checkpoint_blobs`, `checkpoint_writes`, `checkpoint_migrations`). They are created
   automatically on the first chat, outside Alembic, and deleted when a run finishes.
-- **Deploying**: run `alembic upgrade head` (migrations `0006`, `0007`) on Neon, and set `GROQ_API_KEY` /
+- **Deploying**: run `alembic upgrade head` (migrations `0006`–`0008`) on Neon, and set `GROQ_API_KEY` /
   `GOOGLE_AI_API_KEY` on Render. If replies arrive all at once instead of word by word, a proxy
   is buffering the stream: the page still works, just without the typing effect.
+
+### Resume files (Phase 2)
+
+Each resume can carry one PDF (up to `RESUME_MAX_DOCUMENTS`, default 3 files per user; 5 MB and
+10 pages each). On upload the text is extracted and **redacted** (Aadhaar with checksum, PAN,
+passport, voter ID, bank account/IFSC, card numbers, DOB, passwords) before anything is stored,
+then split into section-aware passages. Embeddings (`gemini-embedding-001`, 768 dims) and a
+structured profile (titles, years, skills, domains) are produced in the background; if the
+free quota is exhausted the resume shows "Indexing paused" and heals on a later read or a
+manual retry (`POST /resumes/{id}/document/process`, limited per day).
+
+- **API**: `POST /resumes/{id}/document` (multipart `file`), `DELETE /resumes/{id}/document`,
+  `GET /resumes/{id}/document/url` (a link valid for `OBJECT_STORE_PRESIGN_SECONDS`).
+- **Storage**: the PDF lives in S3-compatible object storage, never on the server's disk.
+  Production: create a Cloudflare R2 bucket and an API token (object read/write), then set
+  `OBJECT_STORE_ENDPOINT_URL=https://<account>.r2.cloudflarestorage.com`,
+  `OBJECT_STORE_BUCKET`, `OBJECT_STORE_ACCESS_KEY_ID`, `OBJECT_STORE_SECRET_ACCESS_KEY` on Render.
+  Local development: `OBJECT_STORE_LOCAL_DIR=.object-store` stores files in a folder.
+- **pgvector**: migration `0008` enables the extension and an HNSW index where it is available
+  (Neon has it). A stock local Postgres without pgvector gets a plain array column instead and
+  search runs in Python, so every test passes either way. To exercise the real index locally:
+  `docker run -d --name ccc-pgvector -p 55432:5432 -e POSTGRES_PASSWORD=postgres pgvector/pgvector:pg17`
+  then `TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:55432/ccc_test uv run pytest`.
+- **Assistant**: new tools `get_resume_profile` and `search_resume` ("what does my backend resume
+  say about Kafka?"); search falls back to keywords if embeddings are unavailable.
 
 Every provider call is a row in `provider_usage_events` (tokens, latency, outcome; never the
 prompt). Logs carry the same fields under the `llm_call` event. Optional LangSmith tracing

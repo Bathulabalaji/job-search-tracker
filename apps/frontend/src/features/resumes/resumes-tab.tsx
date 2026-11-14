@@ -21,6 +21,7 @@ import {
 import { SearchBox } from "@/components/common/search-box"
 import { useDebouncedValue } from "@/lib/use-debounced-value"
 import { ResumeDialog } from "./resume-dialog"
+import { ResumeFile } from "./resume-file"
 
 /** '3' -> 'v3', but leave 'v3' and 'draft-2' alone. */
 function versionLabel(version: string): string {
@@ -113,9 +114,7 @@ export function ResumesTab() {
                     </Button>
                   </div>
                 </div>
-                {resume.file_name ? (
-                  <p className="break-all font-mono text-xs">{resume.file_name}</p>
-                ) : null}
+                <ResumeFile resume={resume} compact />
                 {resume.notes ? (
                   <p className="text-sm text-muted-foreground">{resume.notes}</p>
                 ) : null}
@@ -128,7 +127,7 @@ export function ResumesTab() {
                 <TableRow>
                   <TableHead>Label</TableHead>
                   <TableHead>Focus</TableHead>
-                  <TableHead>File name</TableHead>
+                  <TableHead>File</TableHead>
                   <TableHead>Version</TableHead>
                   <TableHead>Notes</TableHead>
                   <TableHead className="w-24">
@@ -141,7 +140,9 @@ export function ResumesTab() {
                   <TableRow key={resume.id}>
                     <TableCell className="font-medium">{resume.label}</TableCell>
                     <TableCell className="text-muted-foreground">{resume.focus ?? "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{resume.file_name ?? "—"}</TableCell>
+                    <TableCell>
+                      <ResumeFile resume={resume} />
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="font-mono">
                         {versionLabel(resume.version)}
@@ -186,7 +187,7 @@ export function ResumesTab() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.label ?? "resume"}?`}
-        description="Only this record is removed. Your actual file is not touched."
+        description="The record and any uploaded file are removed."
         pending={remove.isPending}
         onConfirm={() => {
           if (!deleting) return

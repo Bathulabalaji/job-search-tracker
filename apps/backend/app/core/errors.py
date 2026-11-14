@@ -44,3 +44,7 @@ class ChatQuotaError(RateLimitedError):
         super().__init__(retry_after_seconds)
         self.code = "chat_quota"
         self.message = message
+
+
+class DocumentError(AuthError):
+    """A resume-file problem the user can act on (too big, scanned PDF, limit reached...)."""

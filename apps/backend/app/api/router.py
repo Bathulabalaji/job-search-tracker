@@ -21,6 +21,7 @@ from app.api.auth_deps import get_current_user, require_trusted_origin
 api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_trusted_origin)])
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
+api_router.include_router(resumes.files_router)  # token-signed downloads, no session
 
 # Everything below requires a signed-in user. The dependency also enforces the CSRF token on
 # POST/PATCH/PUT/DELETE, and each service only ever sees that user's rows.

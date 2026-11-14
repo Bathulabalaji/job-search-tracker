@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import { request } from "./client"
+import { request, upload } from "./client"
 import { queryKeys } from "./keys"
 import type { Resume, ResumeCreate, ResumeUpdate } from "./types"
 
@@ -40,4 +40,37 @@ export function useDeleteResume() {
     mutationFn: (id: number) => request<void>(`/resumes/${id}`, { method: "DELETE" }),
     onSuccess: invalidate,
   })
+}
+
+export function useUploadResumeDocument() {
+  const invalidate = useInvalidateResumes()
+  return useMutation({
+    mutationFn: ({ id, file }: { id: number; file: File }) => {
+      const form = new FormData()
+      form.append("file", file, file.name)
+      return upload<Resume>(`/resumes/${id}/document`, form)
+    },
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteResumeDocument() {
+  const invalidate = useInvalidateResumes()
+  return useMutation({
+    mutationFn: (id: number) => request<void>(`/resumes/${id}/document`, { method: "DELETE" }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useReindexResume() {
+  const invalidate = useInvalidateResumes()
+  return useMutation({
+    mutationFn: (id: number) =>
+      request<Resume>(`/resumes/${id}/document/process`, { method: "POST" }),
+    onSuccess: invalidate,
+  })
+}
+
+export function getResumeDocumentUrl(id: number): Promise<{ url: string; expires_at: string }> {
+  return request(`/resumes/${id}/document/url`)
 }

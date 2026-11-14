@@ -180,3 +180,44 @@ export function retryMessage(error: ApiError): string {
   const minutes = Math.ceil(seconds / 60);
   return `${error.message} Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`;
 }
+
+export interface UploadFile {
+  uri: string;
+  name: string;
+  type: string;
+}
+
+/** POST one file as multipart/form-data (React Native's fetch builds the body from the uri). */
+export async function upload<T>(path: string, file: UploadFile): Promise<T> {
+  const form = new FormData();
+  form.append("file", {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as unknown as Blob);
+  const headers = baseHeaders();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers,
+      body: form,
+      signal: controller.signal,
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      "Can't reach the server. Check your connection and try again.",
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!response.ok) {
+    const error = await errorFromResponse(response);
+    reportSessionProblems(error, path);
+    throw error;
+  }
+  return (await response.json()) as T;
+}

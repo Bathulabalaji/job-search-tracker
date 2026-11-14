@@ -19,7 +19,10 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import Clock
 from app.core.config import Settings
+from app.llm.errors import LLMError
+from app.llm.gateway import LLMGateway
 from app.models.enums import FollowupStatus, PrepCategory, PrepStatus, Source, Stage
+from app.repositories.resume_chunk import ResumeChunkRepository
 from app.services.analytics import AnalyticsService
 from app.services.contact import ContactService
 from app.services.dashboard import DashboardService
@@ -135,6 +138,15 @@ class ListPrepArgs(BaseModel):
     status: PrepStatus | None = None
 
 
+class ResumeIdArgs(BaseModel):
+    resume_id: int
+
+
+class SearchResumeArgs(BaseModel):
+    query: str = Field(min_length=2, max_length=300, description="What to look for")
+    resume_id: int | None = Field(None, description="Only this resume; default all")
+
+
 CLOSED_STAGES = {Stage.accepted, Stage.rejected, Stage.ghosted, Stage.parked}
 
 
@@ -172,6 +184,7 @@ def build_read_tools(
     user_id: int,
     *,
     timeout_seconds: float | None = None,
+    gateway: LLMGateway | None = None,
 ) -> dict[str, AssistantTool]:
     opportunities = OpportunityService(session, clock, settings, user_id)
     dashboard = DashboardService(session, clock, user_id)
@@ -181,6 +194,7 @@ def build_read_tools(
     contacts = ContactService(session, user_id)
     prep = PrepItemService(session, user_id)
     resumes = ResumeService(session, user_id)
+    chunks = ResumeChunkRepository(session, user_id)
 
     def get_today(_: BaseModel) -> dict[str, Any]:
         today = dashboard.today()
@@ -380,10 +394,84 @@ def build_read_tools(
                     "focus": r.focus,
                     "version": r.version,
                     "notes": _clip(r.notes, 100),
+                    "file": r.file_name if r.storage_key else None,
+                    "indexed": (r.embed_status == "ready") if r.storage_key else None,
                 }
                 for r in resumes.list(limit=20)
             ]
         }
+
+    def get_resume_profile(raw: BaseModel) -> dict[str, Any]:
+        a = ResumeIdArgs.model_validate(raw.model_dump())
+        r = resumes.get(a.resume_id)
+        if not r.storage_key:
+            return {
+                "id": r.id,
+                "label": r.label,
+                "profile": None,
+                "note": "No file is attached to this resume yet.",
+            }
+        profile = r.profile or {}
+        return {
+            "id": r.id,
+            "label": r.label,
+            "focus": r.focus,
+            "file": r.file_name,
+            "indexed": r.embed_status == "ready",
+            "profile": {
+                "titles": profile.get("titles", [])[:5],
+                "years_experience": profile.get("years_experience"),
+                "skills": [sk.get("name") for sk in profile.get("skills", [])][:30],
+                "domains": profile.get("domains", [])[:6],
+                "education": profile.get("education", [])[:3],
+                "summary": _clip(profile.get("summary"), 300),
+            }
+            if profile
+            else None,
+            "excerpt": _clip(r.extracted_text, 400) if not profile else None,
+        }
+
+    def search_resume(raw: BaseModel) -> dict[str, Any]:
+        a = SearchResumeArgs.model_validate(raw.model_dump())
+        scope = [resumes.get(a.resume_id).id] if a.resume_id is not None else None
+        if gateway is not None and gateway.enabled:
+            try:
+                [vector] = gateway.embed([a.query], kind="query")
+                hits = chunks.similar(vector, resume_ids=scope, k=5)
+                return {
+                    "matches": [
+                        {
+                            "resume_id": h.resume_id,
+                            "section": h.section,
+                            "score": round(h.score, 2),
+                            "text": _clip(h.text, 350),
+                        }
+                        for h in hits
+                    ],
+                    "method": "semantic",
+                }
+            except LLMError:
+                pass  # fall back to plain text search below
+        words = [w for w in a.query.lower().split() if len(w) > 2][:6]
+        matches: list[dict[str, Any]] = []
+        for r in resumes.list(limit=20):
+            if scope is not None and r.id not in scope:
+                continue
+            text = (r.extracted_text or "").lower()
+            for word in words:
+                at = text.find(word)
+                if at >= 0:
+                    snippet = (r.extracted_text or "")[max(0, at - 150) : at + 200]
+                    matches.append(
+                        {
+                            "resume_id": r.id,
+                            "section": "text",
+                            "score": None,
+                            "text": _clip(snippet),
+                        }
+                    )
+                    break
+        return {"matches": matches[:5], "method": "keyword"}
 
     def count(key: str, noun: str) -> Callable[[dict[str, Any]], str]:
         return lambda result: _rows(len(result.get(key, [])), noun)
@@ -453,10 +541,24 @@ def build_read_tools(
         ),
         AssistantTool(
             "list_resumes",
-            "The user's resume versions (label, focus, version).",
+            "The user's resume versions (label, focus, version, attached file).",
             NoArgs,
             list_resumes,
             count("items", "resume"),
+        ),
+        AssistantTool(
+            "get_resume_profile",
+            "The extracted profile of one uploaded resume: titles, years, skills, domains.",
+            ResumeIdArgs,
+            get_resume_profile,
+            lambda r: str(r.get("label", "resume")),
+        ),
+        AssistantTool(
+            "search_resume",
+            "Find passages in the user's uploaded resumes about a topic, skill or project.",
+            SearchResumeArgs,
+            search_resume,
+            count("matches", "match"),
         ),
     ]
     if timeout_seconds:
@@ -491,7 +593,13 @@ TOOLSETS: dict[str, tuple[str, ...]] = {
     "analytics": ("get_weekly_analytics", "get_pipeline_summary", "list_opportunities"),
     "contacts": ("list_contacts", "list_opportunities", "get_opportunity"),
     "prep": ("list_prep_items", "list_opportunities", "get_opportunity"),
-    "resumes": ("list_resumes", "list_opportunities", "get_opportunity"),
+    "resumes": (
+        "list_resumes",
+        "get_resume_profile",
+        "search_resume",
+        "list_opportunities",
+        "get_opportunity",
+    ),
     "smalltalk": (),
 }
 ALL_TOOLS = (
@@ -504,7 +612,9 @@ ALL_TOOLS = (
     "list_contacts",
     "list_prep_items",
     "list_resumes",
-)
+    "get_resume_profile",
+    "search_resume",
+) + WRITE
 
 
 def toolset_for(intent: str | None) -> tuple[str, ...]:

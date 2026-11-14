@@ -355,6 +355,30 @@ export interface WeeklyAnalytics {
 
 // ---- Resumes -------------------------------------------------------------------------------
 
+export interface ResumeProfile {
+  titles: string[]
+  years_experience: number | null
+  skills: { name: string; years: number | null }[]
+  domains: string[]
+  education: string[]
+  locations: string[]
+  notable_projects: string[]
+  summary: string
+}
+
+/** The uploaded PDF: where it stands in extraction and indexing. */
+export interface ResumeDocument {
+  file_name: string | null
+  content_type: string | null
+  size_bytes: number | null
+  page_count: number | null
+  uploaded_at: string | null
+  text_status: "none" | "ready" | "failed"
+  embed_status: "none" | "pending" | "ready" | "failed"
+  processing_error: string | null
+  profile: ResumeProfile | null
+}
+
 export interface Resume {
   id: number
   label: string
@@ -362,9 +386,10 @@ export interface Resume {
   file_name: string | null
   version: string
   notes: string | null
+  document: ResumeDocument | null
 }
 
-export type ResumeCreate = Omit<Resume, "id">
+export type ResumeCreate = Omit<Resume, "id" | "document">
 export type ResumeUpdate = Partial<ResumeCreate>
 
 export type ContactUpdate = Partial<ContactCreate>

@@ -210,3 +210,33 @@ export async function streamRequest(
     feed(value)
   }
 }
+
+/**
+ * POST a file as multipart/form-data. The browser sets the Content-Type (with its boundary);
+ * the CSRF token and cookie travel exactly as for `request`.
+ */
+export async function upload<T>(path: string, form: FormData, retriedCsrf = false): Promise<T> {
+  const headers: Record<string, string> = {}
+  const csrf = getCsrfToken()
+  if (csrf) headers["X-CSRF-Token"] = csrf
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: form,
+    })
+  } catch {
+    throw new ApiError(0, "Cannot reach the API. Is the backend running?")
+  }
+  if (!response.ok) {
+    const error = await errorFrom(response)
+    if (error.code === "csrf_failed" && !retriedCsrf && hooks && (await hooks.refreshCsrf())) {
+      return upload<T>(path, form, true)
+    }
+    reportSessionProblems(error, path)
+    throw error
+  }
+  return (await response.json()) as T
+}

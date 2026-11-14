@@ -1,18 +1,24 @@
+from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import Depends
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from sqlalchemy.orm import Session
 
 from app.api.auth_deps import (
     ClockDep,
     CurrentUser,
     DbSession,
+    LLMGatewayDep,
     LLMProvidersDep,
     SettingsDep,
     get_checkpointer,
     get_session_scope,
 )
 from app.assistant.runner import SessionScope, TurnRunner
+from app.core.clock import Clock
+from app.core.config import Settings
+from app.core.errors import AuthError
 from app.services.analytics import AnalyticsService
 from app.services.chat import ChatService
 from app.services.contact import ContactService
@@ -23,7 +29,14 @@ from app.services.interaction import InteractionService
 from app.services.opportunity import OpportunityService
 from app.services.prep_item import PrepItemService
 from app.services.resume import ResumeService
+from app.services.resume_documents import (
+    ResumeDocumentService,
+    embed_later,
+    verify_download_token,
+)
 from app.services.weekly_target import WeeklyTargetService
+from app.storage import build_object_store
+from app.storage.object_store import ObjectStore
 
 
 def get_opportunity_service(
@@ -116,3 +129,58 @@ def get_turn_runner(
 
 ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
 TurnRunnerDep = Annotated[TurnRunner, Depends(get_turn_runner)]
+
+
+# ---- resume files (Phase 2) -------------------------------------------------------------------
+
+
+def get_object_store(settings: SettingsDep) -> ObjectStore:
+    return build_object_store(settings)
+
+
+ObjectStoreDep = Annotated[ObjectStore, Depends(get_object_store)]
+
+
+def get_resume_document_service(
+    db: DbSession,
+    clock: ClockDep,
+    settings: SettingsDep,
+    user: CurrentUser,
+    store: ObjectStoreDep,
+    gateway: LLMGatewayDep,
+) -> ResumeDocumentService:
+    return ResumeDocumentService(db, clock, settings, user.id, store, gateway)
+
+
+ResumeDocumentServiceDep = Annotated[ResumeDocumentService, Depends(get_resume_document_service)]
+
+type EmbedLater = Callable[[int], None]
+
+
+def get_embed_later(
+    settings: SettingsDep,
+    clock: ClockDep,
+    user: CurrentUser,
+    store: ObjectStoreDep,
+    providers: LLMProvidersDep,
+    session_scope: Annotated[SessionScope, Depends(get_session_scope)],
+) -> EmbedLater:
+    """A background task that indexes one resume (embeddings + profile) after the response."""
+
+    def run(resume_id: int) -> None:
+        embed_later(session_scope, settings, clock, user.id, resume_id, store, providers)
+
+    return run
+
+
+EmbedLaterDep = Annotated[EmbedLater, Depends(get_embed_later)]
+
+
+def build_document_service_for_token(
+    db: Session, settings: Settings, clock: Clock, store: ObjectStore, token: str, resume_id: int
+) -> ResumeDocumentService:
+    """For the signed download link: no sign-in, the token says whose file this is."""
+    user_id = verify_download_token(settings.secret_key, token, resume_id, now=clock.now())
+    if user_id is None:
+        raise AuthError("invalid_link", "This download link is invalid or has expired.", 403)
+    return ResumeDocumentService(db, clock, settings, user_id, store, None)

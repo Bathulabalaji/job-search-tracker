@@ -444,3 +444,24 @@ Differences from the plan:
 - Mobile cards show the proposed values and Confirm/Decline; editing fields is web-only for now.
 - The "suggested while reading external content" warning badge waits for Phase 3, when
   untrusted job content first enters a prompt.
+
+### Phase 2 (shipped 2026-11-14)
+
+Built as specified: PDF upload with magic-byte, size, page and encryption checks; redaction
+before storage; section-aware chunking (≈350 tokens, 60 overlap, an overview chunk first);
+`gemini-embedding-001` at 768 dims; LLM-extracted `ResumeProfile` (JSONB); background indexing
+with persisted `pending` state, retry time and a 10-attempt cap; lazy retry on `GET /resumes/{id}`;
+delete removes chunks and the object; assistant tools `get_resume_profile` and `search_resume`.
+Differences from the plan:
+- **pgvector is optional at migration time.** Migration 0008 creates `vector(768)` + HNSW where
+  the extension exists (Neon) and `double precision[]` elsewhere; `ResumeChunkRepository`
+  detects which and searches with `<=>` or in Python. Tests pass on both (verified against a
+  `pgvector/pgvector:pg17` container and a stock Postgres 18).
+- **Downloads**: S3/R2 gives a presigned URL; the local-folder store (development) gets a
+  short-lived HMAC-signed API link instead. Both expire after `OBJECT_STORE_PRESIGN_SECONDS`.
+- **`resume_max_documents` counts uploaded files**, not resume records, so existing
+  metadata-only resumes are unaffected.
+- **Contact details are kept** (email, phone): recruiters need them and they are not on the
+  brief's forbidden list; government IDs, bank/card numbers, DOB and passwords are redacted.
+- Live check (dev DB, real Gemini): upload + indexing 4.8 s for a one-page resume; profile
+  extracted correctly; a "payments API on PostgreSQL" query ranked the right passages first.
