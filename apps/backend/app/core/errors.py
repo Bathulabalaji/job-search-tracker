@@ -11,6 +11,10 @@ class ConflictError(DomainError):
     pass
 
 
+class InvalidInputError(DomainError):
+    """A value that parses but is not acceptable (for example a date in the future)."""
+
+
 class AuthError(DomainError):
     """An authentication or account problem that is safe to show to the user.
 

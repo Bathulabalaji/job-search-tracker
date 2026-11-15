@@ -63,7 +63,7 @@ def test_followup_requires_existing_opportunity(db: Session, clock: Clock) -> No
 
 def test_interaction_defaults_occurred_at_to_now(db: Session, clock: Clock, opp_id: int) -> None:
     i = InteractionService(db, clock, db.info["user_id"]).create(
-        InteractionCreate(opportunity_id=opp_id, type=InteractionType.call)
+        InteractionCreate(summary="Test note", opportunity_id=opp_id, type=InteractionType.call)
     )
     assert i.occurred_at == clock.now()
 
@@ -73,10 +73,19 @@ def test_interaction_requires_existing_opportunity_and_contact(
 ) -> None:
     svc = InteractionService(db, clock, db.info["user_id"])
     with pytest.raises(NotFoundError):
-        svc.create(InteractionCreate(opportunity_id=999_999, type=InteractionType.call))
+        svc.create(
+            InteractionCreate(
+                summary="Test note", opportunity_id=999_999, type=InteractionType.call
+            )
+        )
     with pytest.raises(NotFoundError):
         svc.create(
-            InteractionCreate(opportunity_id=opp_id, contact_id=999_999, type=InteractionType.call)
+            InteractionCreate(
+                summary="Test note",
+                opportunity_id=opp_id,
+                contact_id=999_999,
+                type=InteractionType.call,
+            )
         )
 
 
@@ -85,7 +94,9 @@ def test_deleting_contact_keeps_interaction(db: Session, clock: Clock, opp_id: i
     interactions = InteractionService(db, clock, db.info["user_id"])
     c = contacts.create(ContactCreate(name="Asha", opportunity_id=opp_id))
     i = interactions.create(
-        InteractionCreate(opportunity_id=opp_id, contact_id=c.id, type=InteractionType.email)
+        InteractionCreate(
+            summary="Test note", opportunity_id=opp_id, contact_id=c.id, type=InteractionType.email
+        )
     )
     contacts.delete(c.id)
     db.refresh(i)

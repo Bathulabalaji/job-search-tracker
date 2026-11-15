@@ -11,17 +11,26 @@ interface Props {
   value: string
   onChange: (value: string) => void
   error?: string
+  /** False for "when did this happen" fields: the quick picks look back, not ahead. */
+  allowFuture?: boolean
 }
 
 /** Quick picks for the common cases, plus a typed YYYY-MM-DD for anything else. */
-export function DateField({ label, value, onChange, error }: Props) {
+export function DateField({ label, value, onChange, error, allowFuture = true }: Props) {
   const today = todayIso()
-  const picks = [
-    { label: "Today", date: today },
-    { label: "Tomorrow", date: addDays(today, 1) },
-    { label: "In 3 days", date: addDays(today, 3) },
-    { label: "Next Mon", date: addDays(today, daysUntilNextMonday(today)) },
-  ]
+  const picks = allowFuture
+    ? [
+        { label: "Today", date: today },
+        { label: "Tomorrow", date: addDays(today, 1) },
+        { label: "In 3 days", date: addDays(today, 3) },
+        { label: "Next Mon", date: addDays(today, daysUntilNextMonday(today)) },
+      ]
+    : [
+        { label: "Today", date: today },
+        { label: "Yesterday", date: addDays(today, -1) },
+        { label: "2 days ago", date: addDays(today, -2) },
+        { label: "Last week", date: addDays(today, -7) },
+      ]
   return (
     <View style={{ gap: 8 }}>
       <TextField

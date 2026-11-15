@@ -25,10 +25,26 @@ const schema = z.object({
   opportunity_id: z.string().min(1, "Pick an opportunity"),
   type: z.enum(LOGGABLE_INTERACTION_TYPES),
   direction: z.enum(DIRECTIONS),
-  summary: z.string().max(2000),
-  occurred_at: z.string(), // datetime-local; empty = now
+  summary: z
+    .string()
+    .trim()
+    .min(1, "Say what happened")
+    .max(2000, "Keep it under 2,000 characters"),
+  occurred_at: z
+    .string()
+    .min(1, "Pick when it happened")
+    .refine((v) => !Number.isNaN(new Date(v).getTime()), "Enter a valid date and time")
+    // A few minutes of slack so a clock that is slightly fast still works.
+    .refine((v) => new Date(v).getTime() <= Date.now() + 5 * 60_000, "That time is in the future"),
 })
 type Values = z.infer<typeof schema>
+
+/** "Now" in the format a datetime-local input wants (the browser's own timezone). */
+function nowLocalInput(): string {
+  const now = new Date()
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
+  return now.toISOString().slice(0, 16)
+}
 
 const TYPE_OPTIONS = LOGGABLE_INTERACTION_TYPES.map((value) => ({ value, label: titleCase(value) }))
 const DIRECTION_OPTIONS = [
@@ -55,7 +71,7 @@ export function LogInteractionDialog({
     type: "call",
     direction: "out",
     summary: "",
-    occurred_at: "",
+    occurred_at: nowLocalInput(),
   }
   const {
     control,
@@ -72,7 +88,7 @@ export function LogInteractionDialog({
         type: "call",
         direction: "out",
         summary: "",
-        occurred_at: "",
+        occurred_at: nowLocalInput(),
       })
     }
   }, [open, opportunityId, reset])
@@ -83,8 +99,8 @@ export function LogInteractionDialog({
         opportunity_id: Number(values.opportunity_id),
         type: values.type,
         direction: values.direction,
-        summary: values.summary.trim() === "" ? null : values.summary.trim(),
-        occurred_at: values.occurred_at === "" ? null : new Date(values.occurred_at).toISOString(),
+        summary: values.summary,
+        occurred_at: new Date(values.occurred_at).toISOString(),
       },
       {
         onSuccess: () => {
@@ -131,15 +147,16 @@ export function LogInteractionDialog({
               options={DIRECTION_OPTIONS}
             />
           </div>
-          <Field label="Summary" error={errors.summary?.message}>
+          <Field label="What happened?" error={errors.summary?.message}>
             {(a11y) => <Textarea {...a11y} {...register("summary")} rows={3} autoFocus />}
           </Field>
-          <Field label="When" hint="Leave empty for now" error={errors.occurred_at?.message}>
+          <Field label="When" error={errors.occurred_at?.message}>
             {(a11y) => (
               <Input
                 {...a11y}
                 {...register("occurred_at")}
                 type="datetime-local"
+                max={nowLocalInput()}
                 className="font-mono"
               />
             )}

@@ -64,7 +64,7 @@ def test_each_write_tool_executes_through_the_services(
             opportunity_id=opp.id,
             type="call",
             summary="Spoke to HR",
-            occurred_at=datetime(2026, 11, 12, 9, 0),
+            occurred_at=datetime(2026, 11, 10, 9, 0),
         )
     )
     assert result.summary.startswith("Logged call on")

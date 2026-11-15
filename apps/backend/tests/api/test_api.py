@@ -84,10 +84,48 @@ def test_contact_and_interaction_endpoints(client: TestClient) -> None:
             "contact_id": contact.json()["id"],
             "type": "call",
             "direction": "in",
+            "summary": "Intro call",
         },
     )
     assert interaction.status_code == 201
     assert interaction.json()["direction"] == "in"
 
-    missing = client.post("/api/v1/interactions", json={"opportunity_id": 999_999, "type": "call"})
+    missing = client.post(
+        "/api/v1/interactions", json={"opportunity_id": 999_999, "type": "call", "summary": "Hi"}
+    )
     assert missing.status_code == 404
+
+
+def test_interaction_needs_a_summary_and_a_sensible_date(client: TestClient) -> None:
+    opp_id = client.post("/api/v1/opportunities", json={"company": "Zepto", "role": "SDE"}).json()[
+        "id"
+    ]
+    url = "/api/v1/interactions"
+    base = {"opportunity_id": opp_id, "type": "call"}
+
+    for summary in (None, "", "   ", "\u0000"):
+        body = base if summary is None else {**base, "summary": summary}
+        response = client.post(url, json=body)
+        assert response.status_code == 422, summary
+    assert "summary" in client.post(url, json={**base, "summary": "  "}).text
+
+    too_long = client.post(url, json={**base, "summary": "x" * 2001})
+    assert too_long.status_code == 422
+
+    future = client.post(url, json={**base, "summary": "Hi", "occurred_at": "2999-01-01T00:00:00Z"})
+    assert future.status_code == 422
+    assert "future" in future.json()["detail"]
+
+    forged = client.post(url, json={**base, "type": "stage_change", "summary": "Moved"})
+    assert forged.status_code == 422
+
+    ok = client.post(url, json={**base, "summary": "  Spoke to HR  "})
+    assert ok.status_code == 201
+    assert ok.json()["summary"] == "Spoke to HR"
+
+    blank_edit = client.patch(f"{url}/{ok.json()['id']}", json={"summary": " "})
+    assert blank_edit.status_code == 422
+    future_edit = client.patch(
+        f"{url}/{ok.json()['id']}", json={"occurred_at": "2999-01-01T00:00:00Z"}
+    )
+    assert future_edit.status_code == 422

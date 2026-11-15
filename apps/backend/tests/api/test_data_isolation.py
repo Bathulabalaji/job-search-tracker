@@ -75,7 +75,7 @@ def test_you_cannot_attach_your_rows_to_someone_elses_opportunity(two_users: Pai
     opp_id = _create(alice, a_h, "/opportunities", {"company": "AliceCo", "role": "Dev"})
 
     attempts = [
-        ("/interactions", {"opportunity_id": opp_id, "type": "call"}),
+        ("/interactions", {"opportunity_id": opp_id, "type": "call", "summary": "Hi"}),
         ("/followups", {"opportunity_id": opp_id, "due_date": "2026-11-12"}),
         ("/contacts", {"name": "Sneaky", "opportunity_id": opp_id}),
     ]

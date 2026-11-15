@@ -7,7 +7,13 @@ from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import get_settings
-from app.core.errors import AuthError, ConflictError, NotFoundError, RateLimitedError
+from app.core.errors import (
+    AuthError,
+    ConflictError,
+    InvalidInputError,
+    NotFoundError,
+    RateLimitedError,
+)
 from app.core.logging import configure_logging
 from app.llm.errors import LLMError
 
@@ -47,6 +53,10 @@ def create_app() -> FastAPI:
     @app.exception_handler(ConflictError)
     def _conflict(_: Request, exc: ConflictError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc), "code": "conflict"})
+
+    @app.exception_handler(InvalidInputError)
+    def _invalid_input(_: Request, exc: InvalidInputError) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": str(exc), "code": "invalid_input"})
 
     @app.exception_handler(AuthError)
     def _auth_error(_: Request, exc: AuthError) -> JSONResponse:

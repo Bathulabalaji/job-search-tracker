@@ -65,6 +65,10 @@ or a real gap, with a workaround. **Low** is a data-quality or polish issue.
   to `/health`.
 - **Mobile fix (2026-11-15):** uploads now wait 150 s (`UPLOAD_TIMEOUT_MS`). Still to confirm on a new APK; if it
   still fails, the error text now says why.
+- **Root cause found (2026-11-15):** the real error on the phone was "Unsupported FormDataPart implementation". Expo's
+  `fetch` (default since SDK 52) cannot send React Native's old `{ uri, name, type }` file part. The upload now sends a
+  part that has `bytes()` (read through `expo-file-system`), and a test runs it through Expo's own multipart encoder.
+  Needs a new APK to confirm on a phone.
 
 ---
 
@@ -164,6 +168,7 @@ or a real gap, with a workaround. **Low** is a data-quality or polish issue.
 - **Expected:** 422, or a cap of a few minutes in the future to allow for clock differences.
 - **Actual:** 201. The opportunity's last contact becomes a 2027 date and "days since contact"
   stays at 0, so the ghosting warning never shows for it. A typo in the year causes this.
+- **Fixed (2026-11-15):** the API rejects an interaction dated more than 5 minutes ahead (422 "The date can't be in the future"); web and mobile forms check it too.
 
 ### BUG-13 — Clients can create "stage change" entries; summary size is unlimited (Low)
 
@@ -172,6 +177,7 @@ or a real gap, with a workaround. **Low** is a data-quality or polish issue.
   a cap.
 - **Actual:** both are accepted. A forged stage change appears in the timeline as if the stage
   had moved (the analytics funnel is not affected).
+- **Fixed (2026-11-15):** the API rejects `stage_change` from clients and caps the summary at 2,000 characters.
 
 ---
 

@@ -62,7 +62,8 @@ export function FormDate<T extends FieldValues>({
   control,
   name,
   label,
-}: FieldProps<T> & { label: string }) {
+  allowFuture = true,
+}: FieldProps<T> & { label: string; allowFuture?: boolean }) {
   return (
     <Controller
       control={control}
@@ -73,6 +74,7 @@ export function FormDate<T extends FieldValues>({
           value={typeof field.value === "string" ? field.value : ""}
           onChange={field.onChange}
           error={fieldState.error?.message}
+          allowFuture={allowFuture}
         />
       )}
     />

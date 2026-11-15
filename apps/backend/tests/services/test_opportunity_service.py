@@ -197,7 +197,10 @@ def test_move_missing_opportunity_raises(service: OpportunityService) -> None:
 def _log(db: Session, clock: Clock, opp_id: int, days_ago: int, kind: InteractionType) -> None:
     InteractionService(db, clock, db.info["user_id"]).create(
         InteractionCreate(
-            opportunity_id=opp_id, type=kind, occurred_at=clock.now() - timedelta(days=days_ago)
+            summary="Test note",
+            opportunity_id=opp_id,
+            type=kind,
+            occurred_at=clock.now() - timedelta(days=days_ago),
         )
     )
 

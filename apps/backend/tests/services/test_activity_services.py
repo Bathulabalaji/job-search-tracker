@@ -204,16 +204,24 @@ def test_interviews_come_from_interactions(
         OpportunityCreate(company="A", role="B")
     )
     interactions = InteractionService(db, clock, db.info["user_id"])
-    this_week = datetime(2026, 11, 12, 5, 0, tzinfo=UTC)
+    this_week = datetime(2026, 11, 10, 5, 0, tzinfo=UTC)  # earlier than the fixed clock
     last_week = this_week - timedelta(days=7)
     for moment in (this_week, last_week):
         interactions.create(
             InteractionCreate(
-                opportunity_id=opp.id, type=InteractionType.interview, occurred_at=moment
+                summary="Test note",
+                opportunity_id=opp.id,
+                type=InteractionType.interview,
+                occurred_at=moment,
             )
         )
     interactions.create(  # a call is not an interview
-        InteractionCreate(opportunity_id=opp.id, type=InteractionType.call, occurred_at=this_week)
+        InteractionCreate(
+            summary="Test note",
+            opportunity_id=opp.id,
+            type=InteractionType.call,
+            occurred_at=this_week,
+        )
     )
 
     result = analytics.weekly()
@@ -235,7 +243,10 @@ def _funnel_fixture(db: Session, clock: Clock, settings: Settings) -> None:
     svc.move(replied, MoveRequest(stage=Stage.applied))
     interactions.create(
         InteractionCreate(
-            opportunity_id=replied, type=InteractionType.email, direction=Direction.in_
+            summary="Test note",
+            opportunity_id=replied,
+            type=InteractionType.email,
+            direction=Direction.in_,
         )
     )
     svc.move(replied, MoveRequest(stage=Stage.screening))
@@ -250,7 +261,10 @@ def _funnel_fixture(db: Session, clock: Clock, settings: Settings) -> None:
     svc.move(rejected, MoveRequest(stage=Stage.screening))
     interactions.create(
         InteractionCreate(
-            opportunity_id=rejected, type=InteractionType.call, direction=Direction.in_
+            summary="Test note",
+            opportunity_id=rejected,
+            type=InteractionType.call,
+            direction=Direction.in_,
         )
     )
     svc.move(rejected, MoveRequest(stage=Stage.rejected))
@@ -305,9 +319,10 @@ def test_summary_counts_every_stage_and_interviews_this_week(
     opp_id = OpportunityService(db, clock, settings, db.info["user_id"]).list(q="Silent")[0].id
     InteractionService(db, clock, db.info["user_id"]).create(
         InteractionCreate(
+            summary="Test note",
             opportunity_id=opp_id,
             type=InteractionType.interview,
-            occurred_at=datetime(2026, 11, 13, 5, 0, tzinfo=UTC),  # Friday
+            occurred_at=datetime(2026, 11, 10, 5, 0, tzinfo=UTC),  # Tuesday, this week
         )
     )
 
