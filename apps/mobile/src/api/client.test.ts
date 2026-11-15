@@ -1,5 +1,14 @@
+jest.mock("expo-file-system", () => ({
+  File: class {
+    async arrayBuffer() {
+      return new TextEncoder().encode("%PDF-1.4 test").buffer;
+    }
+  },
+}));
+
 import {
   ApiError,
+  filePart,
   describeDetail,
   request,
   retryMessage,
@@ -147,4 +156,42 @@ describe("describeDetail", () => {
   });
   it("passes strings through", () =>
     expect(describeDetail("Nope")).toBe("Nope"));
+});
+
+describe("upload", () => {
+  it("sends the file as a part Expo's multipart encoder accepts", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const {
+      convertFormDataAsync,
+    } = require("expo/build/winter/fetch/convertFormData");
+    // What React Native's FormData holds after `append("file", part)` in the app.
+    const part = filePart({
+      uri: "file:///cache/cv.pdf",
+      name: "My CV.pdf",
+      type: "application/pdf",
+    });
+    const form = { entries: () => [["file", part]] } as unknown as FormData;
+    const { body } = await convertFormDataAsync(form, "BOUNDARY");
+    const text = new TextDecoder().decode(body as Uint8Array);
+    expect(text).toContain('name="file"; filename="My%20CV.pdf"');
+    expect(text).toContain("content-type: application/pdf");
+    expect(text).toContain("%PDF-1.4");
+    expect(text.endsWith("--BOUNDARY--\r\n")).toBe(true);
+  });
+
+  it("is the reason the old { uri } part failed", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const {
+      convertFormDataAsync,
+    } = require("expo/build/winter/fetch/convertFormData");
+    const old = {
+      uri: "file:///cache/cv.pdf",
+      name: "cv.pdf",
+      type: "application/pdf",
+    };
+    const form = { entries: () => [["file", old]] } as unknown as FormData;
+    await expect(convertFormDataAsync(form, "B")).rejects.toThrow(
+      /Unsupported FormDataPart/,
+    );
+  });
 });

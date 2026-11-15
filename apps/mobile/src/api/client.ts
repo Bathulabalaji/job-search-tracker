@@ -1,3 +1,5 @@
+import { File } from "expo-file-system";
+
 import { API_BASE_URL } from "@/config/env";
 
 export class ApiError extends Error {
@@ -190,14 +192,28 @@ export interface UploadFile {
   type: string;
 }
 
-/** POST one file as multipart/form-data (React Native's fetch builds the body from the uri). */
-export async function upload<T>(path: string, file: UploadFile): Promise<T> {
-  const form = new FormData();
-  form.append("file", {
+/**
+ * One file as a multipart part.
+ *
+ * Expo's fetch (the default since SDK 52) cannot read React Native's old `{ uri, name, type }`
+ * part: it fails with "Unsupported FormDataPart implementation". It does accept an object with
+ * `bytes()`, so the file is read lazily when the request is built. `uri` stays for runtimes
+ * that still use React Native's own networking.
+ */
+export function filePart(file: UploadFile) {
+  return {
     uri: file.uri,
     name: file.name,
     type: file.type,
-  } as unknown as Blob);
+    bytes: async (): Promise<Uint8Array> =>
+      new Uint8Array(await new File(file.uri).arrayBuffer()),
+  };
+}
+
+/** POST one file as multipart/form-data. */
+export async function upload<T>(path: string, file: UploadFile): Promise<T> {
+  const form = new FormData();
+  form.append("file", filePart(file) as unknown as Blob);
   const headers = baseHeaders();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
