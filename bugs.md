@@ -1,4 +1,4 @@
-# Bug report — Career Command Center
+# Bug report — Job Smart Pilot
 
 Test date: 15 Nov 2026 · Build: `main` at `b75aba7` · Tester: QA pass by Claude (acting as SDET)
 

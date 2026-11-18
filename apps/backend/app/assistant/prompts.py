@@ -38,7 +38,7 @@ def system_prompt(
         ]
     )
     parts = [
-        f"You are the assistant inside Career Command Center, a job-search tracker. "
+        f"You are the assistant inside Job Smart Pilot, a job-search tracker. "
         f"You are talking to {first_name}. Today is {today:%A %d %B %Y}.",
         "",
         "What you do:",

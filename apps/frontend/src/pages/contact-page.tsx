@@ -42,7 +42,7 @@ function entriesFor(details: ContactDetails): Entry[] {
       icon: Mail,
       label: "Email",
       value: email,
-      href: `mailto:${email}?subject=${encodeURIComponent("Career Command Center")}`,
+      href: `mailto:${email}?subject=${encodeURIComponent("Job Smart Pilot")}`,
     })
   }
   const phone = details.phone.trim()
@@ -105,8 +105,8 @@ export function ContactPage({ details = CONTACT }: { details?: ContactDetails })
           Contact
         </h1>
         <p className="mt-3 text-pretty text-muted-foreground">
-          {name ? `Hi, I'm ${name}. ` : ""}Questions, feedback or a problem with Career Command
-          Center? Send a message and include what you were doing when it happened.
+          {name ? `Hi, I'm ${name}. ` : ""}Questions, feedback or a problem with Job Smart
+          Pilot? Send a message and include what you were doing when it happened.
         </p>
 
         {entries.length ? (

@@ -12,13 +12,15 @@ LOCAL_HOSTS = {"localhost", "127.0.0.1", "[::1]", "::1"}
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "Career Command Center"
+    app_name: str = "Job Smart Pilot"
     environment: str = "local"
     database_url: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/career_command_center"
     )
     cors_origins: list[str] = [
         "http://localhost:5173",
+        "https://jobsmartpilot.vercel.app",
+        # previous domain: now redirects to the one above, kept so cached pages still work
         "https://careercommandcenter.vercel.app",
     ]
 
@@ -56,7 +58,7 @@ class Settings(BaseSettings):
     # SendGrid. With no API key, emails are suppressed (and a warning is logged without the link).
     sendgrid_api_key: str = ""
     email_from_address: str = ""
-    email_from_name: str = "Career Command Center"
+    email_from_name: str = "Job Smart Pilot"
     email_reply_to: str = ""
 
     # Local development helpers. Refused unless the frontend runs on localhost.

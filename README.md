@@ -1,4 +1,4 @@
-# Career Command Center
+# Job Smart Pilot
 
 Job search tracker + analytics. Accounts are supported (email and password, or Google), and every account sees only its own data. See [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) for the full brief.
 

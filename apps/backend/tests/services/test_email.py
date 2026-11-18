@@ -39,7 +39,7 @@ class _Response:
 class TestTemplates:
     def _render(self, **overrides: object) -> tuple[str, str]:
         params: dict[str, object] = {
-            "app_name": "Career Command Center",
+            "app_name": "Job Smart Pilot",
             "subject": "Verify",
             "preheader": "Confirm your email",
             "heading": "Welcome",
@@ -55,7 +55,7 @@ class TestTemplates:
         html, text = self._render()
         assert 'name="viewport"' in html
         assert "@media (max-width: 620px)" in html
-        assert "Career Command Center" in html
+        assert "Job Smart Pilot" in html
         assert 'href="https://app.example/verify-email#token=abc"' in html
         assert "https://app.example/verify-email#token=abc" in text  # plain-text alternative
 

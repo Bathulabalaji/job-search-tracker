@@ -1,10 +1,10 @@
-# PRD: AI Career Assistant (chatbot) for Career Command Center
+# PRD: AI Career Assistant (chatbot) for Job Smart Pilot
 
 Status: v1 approved 2026-11-13 · Owner: product + FDE
 
 ## 1. Context
 
-Career Command Center already tracks opportunities, contacts, interactions, follow-ups, daily logs, weekly targets, prep items and resume *metadata* (web on Vercel, API on Render free tier, Postgres on Neon, Expo app on the same API). Users still click through pages to answer simple questions ("what's waiting on me?", "who ghosted me?") and still search job boards by hand.
+Job Smart Pilot already tracks opportunities, contacts, interactions, follow-ups, daily logs, weekly targets, prep items and resume *metadata* (web on Vercel, API on Render free tier, Postgres on Neon, Expo app on the same API). Users still click through pages to answer simple questions ("what's waiting on me?", "who ghosted me?") and still search job boards by hand.
 
 This PRD adds an **AI assistant** that (1) answers questions about the user's own pipeline in natural language, (2) takes pipeline actions on request behind a confirmation, (3) searches live job postings from chat, (4) stores up to three real resume documents per user and (5) matches postings to the best-fitting resume with a score and gap suggestions. It is built on **LangChain + LangGraph**, **free-tier LLMs only** (Groq + Google AI Studio), **pgvector on Neon**, and the existing Router → Service → Repository backend.
 

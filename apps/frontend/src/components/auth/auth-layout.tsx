@@ -40,7 +40,7 @@ export function AuthLayout() {
             className="flex items-center gap-2 rounded-md font-semibold tracking-tight lg:hidden"
           >
             <BrandMark />
-            Career Command Center
+            Job Smart Pilot
           </Link>
           <ThemeToggle />
         </header>
@@ -83,7 +83,7 @@ function BrandPanel() {
           <span className="flex size-9 items-center justify-center rounded-xl bg-white/95 text-[#4338CA] shadow-lg shadow-black/10">
             <Command className="size-5" aria-hidden />
           </span>
-          Career Command Center
+          Job Smart Pilot
         </Link>
 
         <div className="max-w-md space-y-8 pr-10">

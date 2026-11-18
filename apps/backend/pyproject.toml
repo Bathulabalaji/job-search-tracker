@@ -1,7 +1,7 @@
 [project]
 name = "career-command-center-backend"
 version = "0.1.0"
-description = "Career Command Center API"
+description = "Job Smart Pilot API"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",

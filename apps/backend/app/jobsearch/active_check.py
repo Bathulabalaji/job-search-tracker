@@ -34,7 +34,7 @@ CLOSED = re.compile(
     re.I,
 )
 LISTING_PATHS = re.compile(r"^/(jobs|careers|search|job-search|openings)?/?$", re.I)
-USER_AGENT = "Mozilla/5.0 (compatible; CareerCommandCenter/1.0; job-link-check)"
+USER_AGENT = "Mozilla/5.0 (compatible; JobSmartPilot/1.0; job-link-check)"
 
 
 def is_public_host(host: str) -> bool:

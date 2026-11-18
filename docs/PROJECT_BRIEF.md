@@ -1,4 +1,4 @@
-# Project Brief: Career Command Center
+# Project Brief: Job Smart Pilot
 
 Single-user job search tracker + analytics.
 

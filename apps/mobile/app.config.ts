@@ -14,7 +14,7 @@ const reversedIosScheme = googleIosClientId
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: "Career Command Center",
+  name: "Job Smart Pilot",
   slug: "jobs-tracker",
   version: "1.0.0",
   orientation: "portrait",

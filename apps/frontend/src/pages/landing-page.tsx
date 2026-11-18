@@ -427,7 +427,7 @@ export function LandingPage() {
               </a>
             ) : null}
           </nav>
-          <p>© {COPYRIGHT_YEAR} Career Command Center</p>
+          <p>© {COPYRIGHT_YEAR} Job Smart Pilot</p>
         </div>
       </footer>
     </div>

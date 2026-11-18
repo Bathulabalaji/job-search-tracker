@@ -86,7 +86,7 @@ export function AppSidebar() {
             <Command className="size-4" />
           </div>
           <span className="truncate font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-            Career Command Center
+            Job Smart Pilot
           </span>
         </div>
       </SidebarHeader>

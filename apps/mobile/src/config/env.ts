@@ -4,7 +4,7 @@ export const API_BASE_URL: string =
 
 /** The website. Email links (verify, reset password) open there. */
 export const WEB_URL: string = (
-  process.env.EXPO_PUBLIC_WEB_URL ?? "https://careercommandcenter.vercel.app"
+  process.env.EXPO_PUBLIC_WEB_URL ?? "https://jobsmartpilot.vercel.app"
 ).replace(/\/$/, "")
 
 /** OAuth client IDs of type iOS / Android. Empty hides "Continue with Google". */

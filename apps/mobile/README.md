@@ -1,4 +1,4 @@
-# Career Command Center: mobile app (iOS and Android)
+# Job Smart Pilot: mobile app (iOS and Android)
 
 A native app built with Expo (React Native) that talks to the same FastAPI backend and database as the website. Every page is here: Today, Pipeline, Opportunity detail, Analytics, Daily log, Prep, Contacts & Resumes and Account.
 

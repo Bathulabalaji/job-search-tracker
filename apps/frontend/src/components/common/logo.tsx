@@ -7,7 +7,7 @@ export function Logo() {
       <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-lg shadow-primary/30">
         <Command className="size-4" aria-hidden />
       </span>
-      Career Command Center
+      Job Smart Pilot
     </Link>
   )
 }
