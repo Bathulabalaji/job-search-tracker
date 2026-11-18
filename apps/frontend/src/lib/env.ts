@@ -10,9 +10,9 @@ export const PRIVACY_URL: string = import.meta.env.VITE_PRIVACY_URL ?? ""
 
 /** Public contact details for the /contact page. Anything left empty is simply not shown. */
 export const CONTACT = {
-  name: import.meta.env.VITE_CONTACT_NAME ?? "",
-  email: import.meta.env.VITE_CONTACT_EMAIL ?? "balajibathula12@gmail.com",
-  phone: import.meta.env.VITE_CONTACT_PHONE ?? "",
-  linkedinUrl: import.meta.env.VITE_CONTACT_LINKEDIN_URL ?? "",
+  name: import.meta.env.VITE_CONTACT_NAME ?? "Balaji Bathula",
+  email: import.meta.env.VITE_CONTACT_EMAIL ?? "balajibathula1206@gmail.com",
+  phone: import.meta.env.VITE_CONTACT_PHONE ?? "9490832385",
+  linkedinUrl: import.meta.env.VITE_CONTACT_LINKEDIN_URL ?? "https://www.linkedin.com/in/bathula-balaji/",
   githubUrl: import.meta.env.VITE_CONTACT_GITHUB_URL ?? "https://github.com/Bathulabalaji",
 }
